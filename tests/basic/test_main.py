@@ -11,28 +11,28 @@ import git
 from prompt_toolkit.input import DummyInput
 from prompt_toolkit.output import DummyOutput
 
-from aider.coders import Coder
-from aider.dump import dump  # noqa: F401
-from aider.io import InputOutput
-from aider.main import check_gitignore, main, setup_git
-from aider.utils import GitTemporaryDirectory, IgnorantTemporaryDirectory, make_repo
+from forge.coders import Coder
+from forge.dump import dump  # noqa: F401
+from forge.io import InputOutput
+from forge.main import check_gitignore, main, setup_git
+from forge.utils import GitTemporaryDirectory, IgnorantTemporaryDirectory, make_repo
 
 
 class TestMain(TestCase):
     def setUp(self):
         self.original_env = os.environ.copy()
         os.environ["OPENAI_API_KEY"] = "deadbeef"
-        os.environ["AIDER_CHECK_UPDATE"] = "false"
+        os.environ["forge_CHECK_UPDATE"] = "false"
         self.original_cwd = os.getcwd()
         self.tempdir_obj = IgnorantTemporaryDirectory()
         self.tempdir = self.tempdir_obj.name
         os.chdir(self.tempdir)
-        # Fake home directory prevents tests from using the real ~/.aider.conf.yml file:
+        # Fake home directory prevents tests from using the real ~/.forge.conf.yml file:
         self.homedir_obj = IgnorantTemporaryDirectory()
         os.environ["HOME"] = self.homedir_obj.name
         self.input_patcher = patch("builtins.input", return_value=None)
         self.mock_input = self.input_patcher.start()
-        self.webbrowser_patcher = patch("aider.io.webbrowser.open")
+        self.webbrowser_patcher = patch("forge.io.webbrowser.open")
         self.mock_webbrowser = self.webbrowser_patcher.start()
 
     def tearDown(self):
@@ -51,13 +51,13 @@ class TestMain(TestCase):
         main(["foo.txt", "--yes", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
         self.assertTrue(os.path.exists("foo.txt"))
 
-    @patch("aider.repo.GitRepo.get_commit_message", return_value="mock commit message")
+    @patch("forge.repo.GitRepo.get_commit_message", return_value="mock commit message")
     def test_main_with_empty_git_dir_new_file(self, _):
         make_repo()
         main(["--yes", "foo.txt", "--exit"], input=DummyInput(), output=DummyOutput())
         self.assertTrue(os.path.exists("foo.txt"))
 
-    @patch("aider.repo.GitRepo.get_commit_message", return_value="mock commit message")
+    @patch("forge.repo.GitRepo.get_commit_message", return_value="mock commit message")
     def test_main_with_empty_git_dir_new_files(self, _):
         make_repo()
         main(["--yes", "foo.txt", "bar.txt", "--exit"], input=DummyInput(), output=DummyOutput())
@@ -71,7 +71,7 @@ class TestMain(TestCase):
         res = main(["subdir", "foo.txt"], input=DummyInput(), output=DummyOutput())
         self.assertNotEqual(res, None)
 
-    @patch("aider.repo.GitRepo.get_commit_message", return_value="mock commit message")
+    @patch("forge.repo.GitRepo.get_commit_message", return_value="mock commit message")
     def test_main_with_subdir_repo_fnames(self, _):
         subdir = Path("subdir")
         subdir.mkdir()
@@ -87,14 +87,14 @@ class TestMain(TestCase):
     def test_main_with_git_config_yml(self):
         make_repo()
 
-        Path(".aider.conf.yml").write_text("auto-commits: false\n")
-        with patch("aider.coders.Coder.create") as MockCoder:
+        Path(".forge.conf.yml").write_text("auto-commits: false\n")
+        with patch("forge.coders.Coder.create") as MockCoder:
             main(["--yes"], input=DummyInput(), output=DummyOutput())
             _, kwargs = MockCoder.call_args
             assert kwargs["auto_commits"] is False
 
-        Path(".aider.conf.yml").write_text("auto-commits: true\n")
-        with patch("aider.coders.Coder.create") as MockCoder:
+        Path(".forge.conf.yml").write_text("auto-commits: true\n")
+        with patch("forge.coders.Coder.create") as MockCoder:
             main([], input=DummyInput(), output=DummyOutput())
             _, kwargs = MockCoder.call_args
             assert kwargs["auto_commits"] is True
@@ -110,7 +110,7 @@ class TestMain(TestCase):
 
         # This will throw a git error on windows if get_tracked_files doesn't
         # properly convert git/posix/paths to git\posix\paths.
-        # Because aider will try and `git add` a file that's already in the repo.
+        # Because forge will try and `git add` a file that's already in the repo.
         main(["--yes", str(fname), "--exit"], input=DummyInput(), output=DummyOutput())
 
     def test_setup_git(self):
@@ -123,7 +123,7 @@ class TestMain(TestCase):
 
         gitignore = Path.cwd() / ".gitignore"
         self.assertTrue(gitignore.exists())
-        self.assertEqual(".aider*", gitignore.read_text().splitlines()[0])
+        self.assertEqual(".forge*", gitignore.read_text().splitlines()[0])
 
     def test_check_gitignore(self):
         with GitTemporaryDirectory():
@@ -137,38 +137,38 @@ class TestMain(TestCase):
             check_gitignore(cwd, io)
             self.assertTrue(gitignore.exists())
 
-            self.assertEqual(".aider*", gitignore.read_text().splitlines()[0])
+            self.assertEqual(".forge*", gitignore.read_text().splitlines()[0])
 
             gitignore.write_text("one\ntwo\n")
             check_gitignore(cwd, io)
-            self.assertEqual("one\ntwo\n.aider*\n.env\n", gitignore.read_text())
+            self.assertEqual("one\ntwo\n.forge*\n.env\n", gitignore.read_text())
             del os.environ["GIT_CONFIG_GLOBAL"]
 
     def test_main_args(self):
-        with patch("aider.coders.Coder.create") as MockCoder:
+        with patch("forge.coders.Coder.create") as MockCoder:
             # --yes will just ok the git repo without blocking on input
             # following calls to main will see the new repo already
             main(["--no-auto-commits", "--yes"], input=DummyInput())
             _, kwargs = MockCoder.call_args
             assert kwargs["auto_commits"] is False
 
-        with patch("aider.coders.Coder.create") as MockCoder:
+        with patch("forge.coders.Coder.create") as MockCoder:
             main(["--auto-commits"], input=DummyInput())
             _, kwargs = MockCoder.call_args
             assert kwargs["auto_commits"] is True
 
-        with patch("aider.coders.Coder.create") as MockCoder:
+        with patch("forge.coders.Coder.create") as MockCoder:
             main([], input=DummyInput())
             _, kwargs = MockCoder.call_args
             assert kwargs["dirty_commits"] is True
             assert kwargs["auto_commits"] is True
 
-        with patch("aider.coders.Coder.create") as MockCoder:
+        with patch("forge.coders.Coder.create") as MockCoder:
             main(["--no-dirty-commits"], input=DummyInput())
             _, kwargs = MockCoder.call_args
             assert kwargs["dirty_commits"] is False
 
-        with patch("aider.coders.Coder.create") as MockCoder:
+        with patch("forge.coders.Coder.create") as MockCoder:
             main(["--dirty-commits"], input=DummyInput())
             _, kwargs = MockCoder.call_args
             assert kwargs["dirty_commits"] is True
@@ -211,7 +211,7 @@ class TestMain(TestCase):
         with open(message_file_path, "w", encoding="utf-8") as message_file:
             message_file.write(message_file_content)
 
-        with patch("aider.coders.Coder.create") as MockCoder:
+        with patch("forge.coders.Coder.create") as MockCoder:
             MockCoder.return_value.run = MagicMock()
             main(
                 ["--yes", "--message-file", message_file_path],
@@ -226,8 +226,8 @@ class TestMain(TestCase):
         fname = "foo.py"
 
         with GitTemporaryDirectory():
-            with patch("aider.coders.Coder.create") as MockCoder:  # noqa: F841
-                with patch("aider.main.InputOutput") as MockSend:
+            with patch("forge.coders.Coder.create") as MockCoder:  # noqa: F841
+                with patch("forge.main.InputOutput") as MockSend:
 
                     def side_effect(*args, **kwargs):
                         self.assertEqual(kwargs["encoding"], "iso-8859-15")
@@ -240,15 +240,15 @@ class TestMain(TestCase):
     def test_main_exit_calls_version_check(self):
         with GitTemporaryDirectory():
             with (
-                patch("aider.main.check_version") as mock_check_version,
-                patch("aider.main.InputOutput") as mock_input_output,
+                patch("forge.main.check_version") as mock_check_version,
+                patch("forge.main.InputOutput") as mock_input_output,
             ):
                 main(["--exit", "--check-update"], input=DummyInput(), output=DummyOutput())
                 mock_check_version.assert_called_once()
                 mock_input_output.assert_called_once()
 
-    @patch("aider.main.InputOutput")
-    @patch("aider.coders.base_coder.Coder.run")
+    @patch("forge.main.InputOutput")
+    @patch("forge.coders.base_coder.Coder.run")
     def test_main_message_adds_to_input_history(self, mock_run, MockInputOutput):
         test_message = "test message"
         mock_io_instance = MockInputOutput.return_value
@@ -257,8 +257,8 @@ class TestMain(TestCase):
 
         mock_io_instance.add_to_input_history.assert_called_once_with(test_message)
 
-    @patch("aider.main.InputOutput")
-    @patch("aider.coders.base_coder.Coder.run")
+    @patch("forge.main.InputOutput")
+    @patch("forge.coders.base_coder.Coder.run")
     def test_yes(self, mock_run, MockInputOutput):
         test_message = "test message"
 
@@ -266,8 +266,8 @@ class TestMain(TestCase):
         args, kwargs = MockInputOutput.call_args
         self.assertTrue(args[1])
 
-    @patch("aider.main.InputOutput")
-    @patch("aider.coders.base_coder.Coder.run")
+    @patch("forge.main.InputOutput")
+    @patch("forge.coders.base_coder.Coder.run")
     def test_default_yes(self, mock_run, MockInputOutput):
         test_message = "test message"
 
@@ -277,7 +277,7 @@ class TestMain(TestCase):
 
     def test_dark_mode_sets_code_theme(self):
         # Mock InputOutput to capture the configuration
-        with patch("aider.main.InputOutput") as MockInputOutput:
+        with patch("forge.main.InputOutput") as MockInputOutput:
             MockInputOutput.return_value.get_input.return_value = None
             main(["--dark-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
             # Ensure InputOutput was called
@@ -288,7 +288,7 @@ class TestMain(TestCase):
 
     def test_light_mode_sets_code_theme(self):
         # Mock InputOutput to capture the configuration
-        with patch("aider.main.InputOutput") as MockInputOutput:
+        with patch("forge.main.InputOutput") as MockInputOutput:
             MockInputOutput.return_value.get_input.return_value = None
             main(["--light-mode", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
             # Ensure InputOutput was called
@@ -303,8 +303,8 @@ class TestMain(TestCase):
         return env_file_path
 
     def test_env_file_flag_sets_automatic_variable(self):
-        env_file_path = self.create_env_file(".env.test", "AIDER_DARK_MODE=True")
-        with patch("aider.main.InputOutput") as MockInputOutput:
+        env_file_path = self.create_env_file(".env.test", "forge_DARK_MODE=True")
+        with patch("forge.main.InputOutput") as MockInputOutput:
             MockInputOutput.return_value.get_input.return_value = None
             MockInputOutput.return_value.get_input.confirm_ask = True
             main(
@@ -318,8 +318,8 @@ class TestMain(TestCase):
             self.assertEqual(kwargs["code_theme"], "monokai")
 
     def test_default_env_file_sets_automatic_variable(self):
-        self.create_env_file(".env", "AIDER_DARK_MODE=True")
-        with patch("aider.main.InputOutput") as MockInputOutput:
+        self.create_env_file(".env", "forge_DARK_MODE=True")
+        with patch("forge.main.InputOutput") as MockInputOutput:
             MockInputOutput.return_value.get_input.return_value = None
             MockInputOutput.return_value.get_input.confirm_ask = True
             main(["--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
@@ -330,16 +330,16 @@ class TestMain(TestCase):
             self.assertEqual(kwargs["code_theme"], "monokai")
 
     def test_false_vals_in_env_file(self):
-        self.create_env_file(".env", "AIDER_SHOW_DIFFS=off")
-        with patch("aider.coders.Coder.create") as MockCoder:
+        self.create_env_file(".env", "forge_SHOW_DIFFS=off")
+        with patch("forge.coders.Coder.create") as MockCoder:
             main(["--no-git"], input=DummyInput(), output=DummyOutput())
             MockCoder.assert_called_once()
             _, kwargs = MockCoder.call_args
             self.assertEqual(kwargs["show_diffs"], False)
 
     def test_true_vals_in_env_file(self):
-        self.create_env_file(".env", "AIDER_SHOW_DIFFS=on")
-        with patch("aider.coders.Coder.create") as MockCoder:
+        self.create_env_file(".env", "forge_SHOW_DIFFS=on")
+        with patch("forge.coders.Coder.create") as MockCoder:
             main(["--no-git"], input=DummyInput(), output=DummyOutput())
             MockCoder.assert_called_once()
             _, kwargs = MockCoder.call_args
@@ -365,7 +365,7 @@ class TestMain(TestCase):
             os.chdir(subdir)
 
             # Mock the Linter class
-            with patch("aider.linter.Linter.lint") as MockLinter:
+            with patch("forge.linter.Linter.lint") as MockLinter:
                 MockLinter.return_value = ""
 
                 # Run main with --lint option
@@ -379,18 +379,18 @@ class TestMain(TestCase):
                 self.assertFalse(called_arg.endswith(f"subdir{os.path.sep}dirty_file.py"))
 
     def test_verbose_mode_lists_env_vars(self):
-        self.create_env_file(".env", "AIDER_DARK_MODE=on")
+        self.create_env_file(".env", "forge_DARK_MODE=on")
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
             main(["--no-git", "--verbose", "--exit"], input=DummyInput(), output=DummyOutput())
             output = mock_stdout.getvalue()
             relevant_output = "\n".join(
                 line
                 for line in output.splitlines()
-                if "AIDER_DARK_MODE" in line or "dark_mode" in line
+                if "forge_DARK_MODE" in line or "dark_mode" in line
             )  # this bit just helps failing assertions to be easier to read
-            self.assertIn("AIDER_DARK_MODE", relevant_output)
+            self.assertIn("forge_DARK_MODE", relevant_output)
             self.assertIn("dark_mode", relevant_output)
-            self.assertRegex(relevant_output, r"AIDER_DARK_MODE:\s+on")
+            self.assertRegex(relevant_output, r"forge_DARK_MODE:\s+on")
             self.assertRegex(relevant_output, r"dark_mode:\s+True")
 
     def test_yaml_config_file_loading(self):
@@ -407,11 +407,11 @@ class TestMain(TestCase):
             cwd.mkdir()
             os.chdir(cwd)
 
-            # Create .aider.conf.yml files in different locations
-            home_config = fake_home / ".aider.conf.yml"
-            git_config = git_dir / ".aider.conf.yml"
-            cwd_config = cwd / ".aider.conf.yml"
-            named_config = git_dir / "named.aider.conf.yml"
+            # Create .forge.conf.yml files in different locations
+            home_config = fake_home / ".forge.conf.yml"
+            git_config = git_dir / ".forge.conf.yml"
+            cwd_config = cwd / ".forge.conf.yml"
+            named_config = git_dir / "named.forge.conf.yml"
 
             cwd_config.write_text("model: gpt-4-32k\nmap-tokens: 4096\n")
             git_config.write_text("model: gpt-4\nmap-tokens: 2048\n")
@@ -420,7 +420,7 @@ class TestMain(TestCase):
 
             with (
                 patch("pathlib.Path.home", return_value=fake_home),
-                patch("aider.coders.Coder.create") as MockCoder,
+                patch("forge.coders.Coder.create") as MockCoder,
             ):
                 # Test loading from specified config file
                 main(
@@ -456,7 +456,7 @@ class TestMain(TestCase):
 
     def test_map_tokens_option(self):
         with GitTemporaryDirectory():
-            with patch("aider.coders.base_coder.RepoMap") as MockRepoMap:
+            with patch("forge.coders.base_coder.RepoMap") as MockRepoMap:
                 MockRepoMap.return_value.max_map_tokens = 0
                 main(
                     ["--model", "gpt-4", "--map-tokens", "0", "--exit", "--yes"],
@@ -467,7 +467,7 @@ class TestMain(TestCase):
 
     def test_map_tokens_option_with_non_zero_value(self):
         with GitTemporaryDirectory():
-            with patch("aider.coders.base_coder.RepoMap") as MockRepoMap:
+            with patch("forge.coders.base_coder.RepoMap") as MockRepoMap:
                 MockRepoMap.return_value.max_map_tokens = 1000
                 main(
                     ["--model", "gpt-4", "--map-tokens", "1000", "--exit", "--yes"],
@@ -511,7 +511,7 @@ class TestMain(TestCase):
 
     def test_model_metadata_file(self):
         with GitTemporaryDirectory():
-            metadata_file = Path(".aider.model.metadata.json")
+            metadata_file = Path(".forge.model.metadata.json")
 
             # must be a fully qualified model name: provider/...
             metadata_content = {"deepseek/deepseek-chat": {"max_input_tokens": 1234}}
@@ -535,7 +535,7 @@ class TestMain(TestCase):
 
     def test_sonnet_and_cache_options(self):
         with GitTemporaryDirectory():
-            with patch("aider.coders.base_coder.RepoMap") as MockRepoMap:
+            with patch("forge.coders.base_coder.RepoMap") as MockRepoMap:
                 mock_repo_map = MagicMock()
                 mock_repo_map.max_map_tokens = 1000  # Set a specific value
                 MockRepoMap.return_value = mock_repo_map

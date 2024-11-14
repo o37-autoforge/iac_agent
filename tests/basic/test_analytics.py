@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from aider.analytics import Analytics
+from forge.analytics import Analytics
 
 
 @pytest.fixture

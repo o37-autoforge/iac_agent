@@ -10,21 +10,21 @@ else
 fi
 
 if [ "$ARG" != "--check" ]; then
-  tail -1000 ~/.aider/analytics.jsonl > aider/website/assets/sample-analytics.jsonl
+  tail -1000 ~/.forge/analytics.jsonl > forge/website/assets/sample-analytics.jsonl
 fi
 
 # README.md before index.md, because index.md uses cog to include README.md
 cog $ARG \
     README.md \
-    aider/website/index.md \
-    aider/website/HISTORY.md \
-    aider/website/docs/usage/commands.md \
-    aider/website/docs/languages.md \
-    aider/website/docs/config/dotenv.md \
-    aider/website/docs/config/options.md \
-    aider/website/docs/config/aider_conf.md \
-    aider/website/docs/config/adv-model-settings.md \
-    aider/website/docs/leaderboards/index.md \
-    aider/website/docs/llms/other.md \
-    aider/website/docs/more/infinite-output.md \
-    aider/website/docs/legal/privacy.md
+    forge/website/index.md \
+    forge/website/HISTORY.md \
+    forge/website/docs/usage/commands.md \
+    forge/website/docs/languages.md \
+    forge/website/docs/config/dotenv.md \
+    forge/website/docs/config/options.md \
+    forge/website/docs/config/forge_conf.md \
+    forge/website/docs/config/adv-model-settings.md \
+    forge/website/docs/leaderboards/index.md \
+    forge/website/docs/llms/other.md \
+    forge/website/docs/more/infinite-output.md \
+    forge/website/docs/legal/privacy.md

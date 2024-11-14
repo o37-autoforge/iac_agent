@@ -1,11 +1,11 @@
 # [[[cog
-# from aider.help_pats import exclude_website_pats
+# from forge.help_pats import exclude_website_pats
 # ]]]
 # [[[end]]]
 
 [project]
-name = "aider-chat"
-description = "Aider is AI pair programming in your terminal"
+name = "forge-chat"
+description = "forge is AI pair programming in your terminal"
 readme = "README.md"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -24,10 +24,10 @@ requires-python = ">=3.9,<3.13"
 dynamic = ["dependencies", "optional-dependencies", "version"]
 
 [project.urls]
-Homepage = "https://github.com/Aider-AI/aider"
+Homepage = "https://github.com/forge-AI/forge"
 
 [project.scripts]
-aider = "aider.main:main"
+forge = "forge.main:main"
 
 [tool.setuptools.dynamic]
 dependencies = { file = "requirements.txt" }
@@ -39,14 +39,14 @@ browser = { file = "requirements/requirements-browser.txt" }
 playwright = { file = "requirements/requirements-playwright.txt" }
 
 [tool.setuptools.packages.find]
-include = ["aider*", "aider.website"]
+include = ["forge*", "forge.website"]
 
 [tool.setuptools.package-data]
-"aider" = ["queries/*.scm"]
-"aider.website" = ["**/*.md"]
+"forge" = ["queries/*.scm"]
+"forge.website" = ["**/*.md"]
 
 [tool.setuptools.exclude-package-data]
-"aider.website" = [
+"forge.website" = [
 # [[[cog
 # cog.out("\n".join(f'    "{pat}",' for pat in exclude_website_pats))
 # ]]]
@@ -66,7 +66,7 @@ requires = ["setuptools>=68", "setuptools_scm[toml]>=8"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "aider/__version__.py"
+write_to = "forge/__version__.py"
 
 [tool.codespell]
 skip = "*.svg,Gemfile.lock"

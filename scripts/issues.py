@@ -22,7 +22,7 @@ def has_been_reopened(issue_number):
 # Load environment variables from .env file
 load_dotenv()
 
-DUPLICATE_COMMENT = """Thanks for trying aider and filing this issue.
+DUPLICATE_COMMENT = """Thanks for trying forge and filing this issue.
 
 This looks like a duplicate of #{oldest_issue_number}. Please see the comments there for more information, and feel free to continue the discussion within that issue.
 
@@ -34,8 +34,8 @@ CLOSE_STALE_COMMENT = """I'm closing this issue because it has been stalled for 
 
 # GitHub API configuration
 GITHUB_API_URL = "https://api.github.com"
-REPO_OWNER = "Aider-AI"
-REPO_NAME = "aider"
+REPO_OWNER = "forge-AI"
+REPO_NAME = "forge"
 TOKEN = os.getenv("GITHUB_TOKEN")
 
 headers = {"Authorization": f"token {TOKEN}", "Accept": "application/vnd.github.v3+json"}

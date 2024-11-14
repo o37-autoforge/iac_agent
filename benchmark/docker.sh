@@ -2,11 +2,11 @@
 
 docker run \
        -it --rm \
-       -v `pwd`:/aider \
+       -v `pwd`:/forge \
        -v `pwd`/tmp.benchmarks/.:/benchmarks \
        -e OPENAI_API_KEY=$OPENAI_API_KEY \
-       -e HISTFILE=/aider/.bash_history \
-       -e AIDER_DOCKER=1 \
-       -e AIDER_BENCHMARK_DIR=/benchmarks \
-       aider-benchmark \
+       -e HISTFILE=/forge/.bash_history \
+       -e forge_DOCKER=1 \
+       -e forge_BENCHMARK_DIR=/benchmarks \
+       forge-benchmark \
        bash

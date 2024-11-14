@@ -3,14 +3,14 @@ name: Docker Build Test
 on:
   push:
     paths-ignore:
-      - 'aider/website/**'
+      - 'forge/website/**'
       - README.md
       - HISTORY.md
     branches:
       - main
   pull_request:
     paths-ignore:
-      - 'aider/website/**'
+      - 'forge/website/**'
       - README.md
     branches:
       - main
@@ -38,7 +38,7 @@ jobs:
         file: ./docker/Dockerfile
         platforms: linux/amd64,linux/arm64
         push: false
-        target: aider
+        target: forge
 
     - name: Build Docker full image
       uses: docker/build-push-action@v5
@@ -47,4 +47,4 @@ jobs:
         file: ./docker/Dockerfile
         platforms: linux/amd64,linux/arm64
         push: false
-        target: aider-full
+        target: forge-full

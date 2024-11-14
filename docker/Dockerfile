@@ -16,40 +16,40 @@ ENV PLAYWRIGHT_SKIP_BROWSER_GC=1
 # Permission kludges to support `docker run --user xxx`
 RUN chmod a+rwx /venv /venv/bin /venv/include /venv/lib /venv/lib/python3.10/site-packages
 
-RUN mkdir       /.aider /.cache /pw-browsers
-RUN chmod a+rwx /.aider /.cache /pw-browsers
+RUN mkdir       /.forge /.cache /pw-browsers
+RUN chmod a+rwx /.forge /.cache /pw-browsers
 
 # So git doesn't complain about unusual permissions
 RUN git config --system --add safe.directory /app
 
 #########################
-FROM base AS aider-full
+FROM base AS forge-full
 
-ENV AIDER_DOCKER_IMAGE=paulgauthier/aider-full
+ENV forge_DOCKER_IMAGE=paulgauthier/forge-full
 
-COPY . /tmp/aider
+COPY . /tmp/forge
 RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip \
-    && /venv/bin/python -m pip install --no-cache-dir /tmp/aider[help,browser,playwright] \
+    && /venv/bin/python -m pip install --no-cache-dir /tmp/forge[help,browser,playwright] \
        --extra-index-url https://download.pytorch.org/whl/cpu \
-    && rm -rf /tmp/aider
+    && rm -rf /tmp/forge
 
 RUN /venv/bin/python -m playwright install --with-deps chromium
 RUN find /venv/lib/python3.10/site-packages \( -type d -exec chmod a+rwx {} + \) -o \( -type f -exec chmod a+rw {} + \)
 
-ENTRYPOINT ["/venv/bin/aider"]
+ENTRYPOINT ["/venv/bin/forge"]
 
 #########################
-FROM base AS aider
+FROM base AS forge
 
-ENV AIDER_DOCKER_IMAGE=paulgauthier/aider
+ENV forge_DOCKER_IMAGE=paulgauthier/forge
 
-COPY . /tmp/aider
+COPY . /tmp/forge
 RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip \
-    && /venv/bin/python -m pip install --no-cache-dir /tmp/aider[playwright] \
+    && /venv/bin/python -m pip install --no-cache-dir /tmp/forge[playwright] \
        --extra-index-url https://download.pytorch.org/whl/cpu \
-    && rm -rf /tmp/aider
+    && rm -rf /tmp/forge
 
 RUN /venv/bin/python -m playwright install --with-deps chromium
 RUN find /venv/lib/python3.10/site-packages \( -type d -exec chmod a+rwx {} + \) -o \( -type f -exec chmod a+rw {} + \)
 
-ENTRYPOINT ["/venv/bin/aider"]
+ENTRYPOINT ["/venv/bin/forge"]

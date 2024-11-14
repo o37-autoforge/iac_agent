@@ -3,14 +3,14 @@ name: Windows Python Tests
 on:
   push:
     paths-ignore:
-      - 'aider/website/**'
+      - 'forge/website/**'
       - README.md
       - HISTORY.md
     branches:
       - main
   pull_request:
     paths-ignore:
-      - 'aider/website/**'
+      - 'forge/website/**'
       - README.md
     branches:
       - main

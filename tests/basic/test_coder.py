@@ -6,18 +6,18 @@ from unittest.mock import MagicMock, patch
 
 import git
 
-from aider.coders import Coder
-from aider.dump import dump  # noqa: F401
-from aider.io import InputOutput
-from aider.models import Model
-from aider.repo import GitRepo
-from aider.utils import GitTemporaryDirectory
+from forge.coders import Coder
+from forge.dump import dump  # noqa: F401
+from forge.io import InputOutput
+from forge.models import Model
+from forge.repo import GitRepo
+from forge.utils import GitTemporaryDirectory
 
 
 class TestCoder(unittest.TestCase):
     def setUp(self):
         self.GPT35 = Model("gpt-3.5-turbo")
-        self.webbrowser_patcher = patch("aider.io.webbrowser.open")
+        self.webbrowser_patcher = patch("forge.io.webbrowser.open")
         self.mock_webbrowser = self.webbrowser_patcher.start()
 
     def test_allowed_to_edit(self):
@@ -642,7 +642,7 @@ two
             diff = saved_diffs[0]
             self.assertIn("file.txt", diff)
 
-    def test_skip_aiderignored_files(self):
+    def test_skip_forgeignored_files(self):
         with GitTemporaryDirectory():
             repo = git.Repo()
 
@@ -658,13 +658,13 @@ two
 
             fnames = [fname1, fname2, fname3]
 
-            aignore = Path(".aiderignore")
+            aignore = Path(".forgeignore")
             aignore.write_text(f"{fname1}\n{fname2}\ndir\n")
             repo = GitRepo(
                 io,
                 fnames,
                 None,
-                aider_ignore_file=str(aignore),
+                forge_ignore_file=str(aignore),
             )
 
             coder = Coder.create(

@@ -24,12 +24,12 @@ from dotenv import load_dotenv
 from plots import plot_refactoring
 from rich.console import Console
 
-from aider import models
-from aider.coders import Coder
-from aider.dump import dump  # noqa: F401
-from aider.io import InputOutput
+from forge import models
+from forge.coders import Coder
+from forge.dump import dump  # noqa: F401
+from forge.io import InputOutput
 
-BENCHMARK_DNAME = Path(os.environ.get("AIDER_BENCHMARK_DIR", "tmp.benchmarks"))
+BENCHMARK_DNAME = Path(os.environ.get("forge_BENCHMARK_DIR", "tmp.benchmarks"))
 
 EXERCISES_DIR_DEFAULT = "exercism-python"
 
@@ -130,7 +130,7 @@ def main(
     replay: str = typer.Option(
         None,
         "--replay",
-        help="Replay previous .aider.chat.history.md responses from previous benchmark run",
+        help="Replay previous .forge.chat.history.md responses from previous benchmark run",
     ),
     max_apply_update_errors: int = typer.Option(
         3,
@@ -146,7 +146,7 @@ def main(
     cont: bool = typer.Option(False, "--cont", help="Continue the (single) matching testdir"),
     make_new: bool = typer.Option(False, "--new", "-n", help="Make a new dated testdir"),
     no_unit_tests: bool = typer.Option(False, "--no-unit-tests", help="Do not run unit tests"),
-    no_aider: bool = typer.Option(False, "--no-aider", help="Do not run aider"),
+    no_forge: bool = typer.Option(False, "--no-forge", help="Do not run forge"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     stats_only: bool = typer.Option(
         False, "--stats", "-s", help="Do not run tests, just collect stats on completed tests"
@@ -192,7 +192,7 @@ def main(
     assert len(updated_dirnames) == 1, updated_dirnames
     dirname = updated_dirnames[0]
 
-    if "AIDER_DOCKER" not in os.environ:
+    if "forge_DOCKER" not in os.environ:
         print("Warning: benchmarking runs unvetted code from GPT, run in a docker container")
         return
 
@@ -240,7 +240,7 @@ def main(
                 edit_format,
                 tries,
                 no_unit_tests,
-                no_aider,
+                no_forge,
                 verbose,
                 commit_hash,
                 replay,
@@ -261,7 +261,7 @@ def main(
                 edit_format,
                 tries,
                 no_unit_tests,
-                no_aider,
+                no_forge,
                 verbose,
                 commit_hash,
                 replay,
@@ -307,7 +307,7 @@ def show_diffs(dirnames):
         print()
         print(testcase)
         for outcome, dirname in zip(all_outcomes, dirnames):
-            print(outcome, f"{dirname}/{testcase}/.aider.chat.history.md")
+            print(outcome, f"{dirname}/{testcase}/.forge.chat.history.md")
 
     changed = set(testcases) - unchanged
     print()
@@ -318,7 +318,7 @@ def show_diffs(dirnames):
 
 def load_results(dirname):
     dirname = Path(dirname)
-    all_results = [json.loads(fname.read_text()) for fname in dirname.glob("*/.aider.results.json")]
+    all_results = [json.loads(fname.read_text()) for fname in dirname.glob("*/.forge.results.json")]
     return all_results
 
 
@@ -437,7 +437,7 @@ def summarize_results(dirname):
     show("test_timeouts")
 
     a_model = set(variants["model"]).pop()
-    command = f"aider --model {a_model}"
+    command = f"forge --model {a_model}"
     print(f"  command: {command}")
 
     print(f"  date: {date}")
@@ -472,7 +472,7 @@ def get_versions(commit_hashes):
         hsh = hsh.split("-")[0]
         try:
             version = subprocess.check_output(
-                ["git", "show", f"{hsh}:aider/__init__.py"], universal_newlines=True
+                ["git", "show", f"{hsh}:forge/__init__.py"], universal_newlines=True
             )
             version = re.search(r'__version__ = "(.*)"', version).group(1)
             versions.add(version)
@@ -487,7 +487,7 @@ def get_replayed_content(replay_dname, test_dname):
     dump(replay_dname, test_dname)
 
     test_name = test_dname.name
-    replay_fname = replay_dname / test_name / ".aider.chat.history.md"
+    replay_fname = replay_dname / test_name / ".forge.chat.history.md"
     dump(replay_fname)
 
     res = replay_fname.read_text()
@@ -508,7 +508,7 @@ def run_test(original_dname, testdir, *args, **kwargs):
         traceback.print_exc()
 
         testdir = Path(testdir)
-        results_fname = testdir / ".aider.results.json"
+        results_fname = testdir / ".forge.results.json"
         results_fname.write_text(json.dumps(dict(exception=str(err))))
 
 
@@ -519,7 +519,7 @@ def run_test_real(
     edit_format,
     tries,
     no_unit_tests,
-    no_aider,
+    no_forge,
     verbose,
     commit_hash,
     replay,
@@ -533,9 +533,9 @@ def run_test_real(
 
     testdir = Path(testdir)
 
-    history_fname = testdir / ".aider.chat.history.md"
+    history_fname = testdir / ".forge.chat.history.md"
 
-    results_fname = testdir / ".aider.results.json"
+    results_fname = testdir / ".forge.results.json"
     if results_fname.exists():
         try:
             res = json.loads(results_fname.read_text())
@@ -620,7 +620,7 @@ def run_test_real(
     test_outcomes = []
     for i in range(tries):
         start = time.time()
-        if no_aider:
+        if no_forge:
             pass
         elif replay:
             response = get_replayed_content(replay, testdir)
@@ -635,7 +635,7 @@ def run_test_real(
             response = coder.run(with_message=instructions, preproc=False)
         dur += time.time() - start
 
-        if not no_aider:
+        if not no_forge:
             pat = r"^[+]? *[#].* [.][.][.] "
             # Count the number of lines that match pat in response
             dump(response)
