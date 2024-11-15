@@ -1,0 +1,8 @@
+This agent will utilize the forge agent to execute code editing requests. It will simply edit IaC and answer questions about the code. It will not test the code in an way. 
+
+Remaining Tasks
+- leave it upto the user to make the PR when they are ready. 
+- ask the user if they want to test the code before they make the PR. 
+    
+
+
