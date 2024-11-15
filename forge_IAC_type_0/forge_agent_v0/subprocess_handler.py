@@ -89,23 +89,25 @@ class SubprocessHandler:
         """
         Sends a command to forge and returns the response.
         """
-        try:
-            while True:
-                self.child.sendline(command.replace("\n", ""))
-                logger.debug(f"Sent command to forge: {command}")
+        while True:
+            self.child.sendline(command.replace("\n", ""))
+            logger.debug(f"Sent command to forge: {command}")
 
-                # Define the expected prompt based on current mode
-                starter = "ask" if current_mode == "ask" else ""
-                print(self.child.before)
-                response = self.child.before
-                while "[YES]" in response:
-                    self.child.sendline("Y")
-                    print(response)
+            try:
+                self.child.expect([r'\b>>>>>> REPLACE\b', r'(?:\\[Yes\\]|Tokens)'], timeout=25)
+            except pexpect.TIMEOUT:
+                logger.error("Timed out waiting for forge response.")
+                    
+            response = self.child.before
+            while "[YES]" in response:
+                self.child.sendline("Y")
+                try:
                     self.child.expect([r'\b>>>>>> REPLACE\b', r'(?:\\[Yes\\]|Tokens)'], timeout=25)
-                    response = self.child.before
+                except pexpect.TIMEOUT:
+                    logger.error("Timed out waiting for forge response.")
 
-                return response
+                response = self.child.before
 
-        except Exception as e:
-            logger.error(f"Failed to send command to forge: {e}")
-            raise
+            break
+
+        return response

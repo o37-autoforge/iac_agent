@@ -10,12 +10,8 @@ from typing import List, Dict
 from dotenv import load_dotenv
 from .githubHandler import GitHandler
 from .models import (
-    forgeQuestions,
-    UserQuestion,
     UserQuestions,
     UserResponse,
-    TaskDecomposition,
-    TestFunctions
 )
 import re
 from .utils import strip_ansi_codes, remove_consecutive_duplicates, sanitize_filename, clean_response, clean_forge_response
