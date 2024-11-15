@@ -243,7 +243,6 @@ class forgeAgent:
         Adds, commits, and pushes changes to the repository, then creates a PR.
         """
         self.repo.git.add(A=True)
-        self.repo.index.commit(commit_message)
         origin = self.repo.remote(name='origin')
         origin.push(self.git_handler.branch_name)
         logger.info(f"Pushed changes to branch '{self.git_handler.branch_name}'")
