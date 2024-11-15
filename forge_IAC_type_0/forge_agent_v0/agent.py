@@ -242,18 +242,20 @@ class forgeAgent:
         """
         Adds, commits, and pushes changes to the repository, then creates a PR.
         """
-        self.repo.git.add(A=True)
-        self.repo.index.commit(commit_message)
+        # self.repo.git.add(A=True)
+        # self.repo.index.commit(commit_message)
         origin = self.repo.remote(name='origin')
         origin.push(self.git_handler.branch_name)
         logger.info(f"Pushed changes to branch '{self.git_handler.branch_name}'")
 
         # Create a pull request
-        pr = self.git_handler.create_pull_request(
-            title=commit_message,
-            body="This PR includes code changes made by the forge agent."
-        )
-        logger.info(f"Pull request created: {pr.html_url}")
+        # check if pr exists
+        if not self.git_handler.check_pr_exists():
+            pr = self.git_handler.create_pull_request(
+                title=commit_message,
+                body="This PR includes code changes made by the forge agent."
+            )
+            logger.info(f"Pull request created: {pr.html_url}")
 
     async def close_forge(self):
         """

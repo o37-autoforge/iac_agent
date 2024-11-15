@@ -57,6 +57,18 @@ class GitHandler:
         except Exception as e:
             logger.error(f"Unexpected error: {str(e)}")
             raise
+        
+    def check_pr_exists(self):
+        """
+        Check if a pull request already exists for the branch.
+        """
+        g = Github(self.github_token)
+        path_parts = self.repo_url.rstrip('/').split('/')
+        repo_name = path_parts[-1].replace('.git', '')
+        owner_name = path_parts[-2]
+        github_repo = g.get_repo(f"{owner_name}/{repo_name}")
+        pulls = github_repo.get_pulls(state='open', head=f"{self.branch_name}")
+        return pulls.totalCount > 0
 
     def create_pull_request(self, title, body):
         """
