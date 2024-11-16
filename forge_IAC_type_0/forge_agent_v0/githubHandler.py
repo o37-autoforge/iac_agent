@@ -83,12 +83,13 @@ class GitHandler:
             user = g.get_user()
 
             # Find existing pull requests from your branch
-            pulls = github_repo.get_pulls(state='open', head=f"{self.main_branch}:{self.branch_name}")
+            pulls = github_repo.get_pulls(head=f"{self.main_branch}:{self.branch_name}")
 
             # Close existing pull requests
             for pr in pulls:
                 print(f"Closing PR #{pr.number}")
-                pr.edit(state='closed')
+                pr.delete() 
+
 
             # Create the pull request
             pr = github_repo.create_pull(

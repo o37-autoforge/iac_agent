@@ -4,7 +4,7 @@ import asyncio
 import logging
 import sys
 import traceback
-from agent_type_1.agent import forgeAgent
+from forge_agent_v1.agent import forgeAgent
 
 def main():
     agent = forgeAgent()

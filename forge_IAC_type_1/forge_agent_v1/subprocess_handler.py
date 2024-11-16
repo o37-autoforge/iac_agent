@@ -42,15 +42,6 @@ class SubprocessHandler:
                     self.child.expect(">", timeout=60)
                     logger.info(f"Added file to context: {relative_path}")
 
-            # Add Terraform files to context
-            repo_files = list(self.repo_path.glob("**/*.tf"))
-            if repo_files:
-                for file in repo_files:
-                    relative_path = file.relative_to(self.repo_path)
-                    self.child.sendline(f"/add {relative_path}")
-                    self.child.expect(">", timeout=60)
-                    logger.info(f"Added file to context: {relative_path}")
-
         except pexpect.TIMEOUT:
             logger.error("Timed out waiting for forge to start.")
             if self.child:
@@ -91,25 +82,25 @@ class SubprocessHandler:
         """
         Sends a command to forge and returns the response.
         """
-        try:
-            while True:
-                self.child.sendline(command.replace("\n", ""))
-                logger.debug(f"Sent command to forge: {command}")
+        while True:
+            self.child.sendline(command.replace("\n", ""))
+            logger.debug(f"Sent command to forge: {command}")
 
-                # Define the expected prompt based on current mode
-                starter = "ask" if current_mode == "ask" else ""
-                expected_prompt = f"{starter}>"
+            try:
+                self.child.expect([r'\b>>>>>> REPLACE\b', r'(?:\\[Yes\\]|Tokens)'], timeout=25)
+            except pexpect.TIMEOUT:
+                logger.error("Timed out waiting for forge response.")
+                    
+            response = self.child.before
+            while "[YES]" in response:
+                self.child.sendline("Y")
+                try:
+                    self.child.expect([r'\b>>>>>> REPLACE\b', r'(?:\\[Yes\\]|Tokens)'], timeout=25)
+                except pexpect.TIMEOUT:
+                    logger.error("Timed out waiting for forge response.")
 
-                self.child.expect(["Tokens", "[YES]"], timeout=15)
                 response = self.child.before
 
-                while "YES" in response:
-                    self.child.sendline("Y")
-                    self.child.expect(["Tokens", "[YES]"], timeout=15)
-                    response = self.child.before
+            break
 
-                return response
-
-        except Exception as e:
-            logger.error(f"Failed to send command to forge: {e}")
-            raise
+        return response

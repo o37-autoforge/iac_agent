@@ -24,6 +24,7 @@ import subprocess
 import boto3  # AWS SDK for Python
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 from dotenv import load_dotenv, set_key
+from getpass import getpass
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +36,6 @@ class forgeAgent:
         # Initialize AWS Credentials
         self.ensure_aws_credentials()
         
-        OPEN_AI_KEY = os.getenv("OPENAI_API_KEY")
-        if not OPEN_AI_KEY:
-            logger.error("OPENAI_API_KEY is not set in environment variables.")
-            raise EnvironmentError("OPENAI_API_KEY is missing.")
-
         OPEN_AI_KEY = os.getenv("OPENAI_API_KEY")
         if not OPEN_AI_KEY:
             logger.error("OPENAI_API_KEY is not set in environment variables.")
@@ -181,14 +177,15 @@ class forgeAgent:
             logger.error(f"Error running command {' '.join(command)}: {e}")
             raise
 
-    async def terraform_init(self) -> bool:
+    async def terraform_init(self) -> Dict[str, str]:
         logger.info("Running 'terraform init'")
         result = await self.run_terraform_command(['terraform', 'init'])
         if result['stderr']:
             logger.error(f"Terraform init error: {result['stderr']}")
-            return False
-        logger.info("Terraform init completed successfully.")
-        return True
+        else:
+            logger.info("Terraform init completed successfully.")
+        return result
+
 
     async def terraform_plan(self) -> Dict[str, str]:
         logger.info("Running 'terraform plan'")
@@ -254,28 +251,29 @@ class forgeAgent:
             print(f"\n[Attempt {retry_count + 1} of {self.max_retries}] Running Terraform workflow...")
 
             # Step 1: terraform init
-            if not await self.terraform_init():
-                await self.handle_error("terraform init failed.")
+            plan_result = await self.terraform_init()
+            if plan_result['stderr']:
+                await self.handle_error(f"terraform init failed: {plan_result['stderr']}", command="terraform init")
                 retry_count += 1
                 continue
 
             # Step 2: terraform plan
             plan_result = await self.terraform_plan()
             if plan_result['stderr']:
-                await self.handle_error(f"terraform plan failed: {plan_result['stderr']}")
+                await self.handle_error(f"terraform plan failed: {plan_result['stderr']}", command="terraform plan")
                 retry_count += 1
                 continue
 
             # Step 3: Analyze the plan
             if not await self.analyze_plan():
-                await self.handle_error("Terraform plan does not align with the user query.")
+                await self.handle_error("Terraform plan does not align with the user query.", command="terraform plan")
                 retry_count += 1
                 continue
 
             # Step 4: terraform apply
             apply_result = await self.terraform_apply()
             if apply_result['stderr']:
-                await self.handle_error(f"terraform apply failed: {apply_result['stderr']}")
+                await self.handle_error(f"terraform apply failed: {apply_result['stderr']}", command="terraform apply")
                 retry_count += 1
                 continue
 
@@ -303,7 +301,7 @@ class forgeAgent:
         except Exception as e:
             logger.error(f"Failed to clean up Terraform files: {e}")
 
-    async def handle_error(self, error_message: str):
+    async def handle_error(self, error_message: str, command: str):
         """
         Sends the error message back to Aider for analysis and resolution.
         
@@ -313,13 +311,14 @@ class forgeAgent:
         try:
             # Define a new prompt to send back the error
             prompt = f"""
-            An error occurred during the Terraform workflow:
+            An error occurred during the Terraform workflow when running the command: {command}:
+
             "{error_message}"
             
-            Please analyze the error and provide guidance or corrective actions to resolve it.
+            Please give a response that includes the error itself, and provide guidance or corrective actions to resolve it.
             """
             # Generate a response from LLM
-            response_task = self.llm_handler.generate_forge_query(prompt, user_responses=[])
+            response_task = self.llm_handler.generate_error_query(prompt)
             # Send the response back to forge
             await self.execute_subtask(response_task)
         except Exception as e:
@@ -519,7 +518,7 @@ class forgeAgent:
         self.user_responses = await self.ask_user_questions(results)
                 
         # Get well-written query for forge. 
-        starting_query = self.llm_handler.generate_error_query(user_query, [resp.model_dump() for resp in self.user_responses])
+        starting_query = self.llm_handler.generate_forge_query(user_query, [resp.model_dump() for resp in self.user_responses])
 
         self.starting_query = starting_query
         # Put into architect mode, and send query. Automate yesses 
