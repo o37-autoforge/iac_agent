@@ -12,26 +12,41 @@ from .githubHandler import GitHandler
 from .models import (
     UserQuestions,
     UserResponse,
+    testCommands,
+    applyCommands,
+    Tests,
+    Commands
 )
 import re
-from .utils import strip_ansi_codes, remove_consecutive_duplicates, sanitize_filename, clean_response, clean_forge_response
+from .utils import strip_ansi_codes, remove_consecutive_duplicates 
 from .llm_handler import LLMHandler
 from .subprocess_handler import SubprocessHandler
-from langchain_community.vectorstores import FAISS
-from langchain_openai.embeddings import OpenAIEmbeddings
 import git
 import subprocess
 import boto3  # AWS SDK for Python
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
 from dotenv import load_dotenv, set_key
 from getpass import getpass
+from typing import Optional
+import fnmatch
+import os
+import pty
+import asyncio
+import pexpect
 
 logger = logging.getLogger(__name__)
 
+def remove_ansi_sequences(text):
+    # Regex pattern for ANSI escape codes
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
 class forgeAgent:
-    def __init__(self):
+    def __init__(self, applyChanges = True, autoPR = True):
         # Load environment variables
         load_dotenv()     
+        self.applyChanges = applyChanges
+        self.autoPR = autoPR
 
         # Initialize AWS Credentials
         self.ensure_aws_credentials()
@@ -59,7 +74,7 @@ class forgeAgent:
         # Initialize Subprocess Handler and start forge
         self.subprocess_handler = SubprocessHandler(self.repo_path)
         try:
-            self.subprocess_handler.start_forge(OPEN_AI_KEY)
+            self.fileContext=self.subprocess_handler.start_forge(OPEN_AI_KEY, self.get_repo_content())
         except Exception as e:
             logger.error(f"Failed to start forge: {str(e)}")
             raise
@@ -73,6 +88,152 @@ class forgeAgent:
         self.forge_responses: Dict[str, str] = {}     # To store forge responses
 
         self.max_retries = 3  # Maximum number of retries for Terraform workflow
+
+    def identify_tool_from_command(self, command: str) -> Optional[str]:
+        """
+        Identifies the tool associated with a test command.
+        
+        :param command: The test command string.
+        :return: The tool name if identified, else None.
+        """
+        # Define keywords that identify each tool
+        tool_keywords = {
+            'terraform': ['terraform'],
+            'ansible': ['ansible', 'ansible-playbook'],
+            'puppet': ['puppet'],
+            'chef': ['chef'],
+            'docker': ['docker', 'docker-compose'],
+            # Add more tools and their identifying keywords as needed
+        }
+
+        command_lower = command.lower()
+        for tool, keywords in tool_keywords.items():
+            for keyword in keywords:
+                if keyword in command_lower:
+                    return tool
+        return None
+
+    def find_tool_directory(self, tool_name: str) -> Optional[Path]:
+        """
+        Finds the directory in the repository that contains files relevant to the specified tool.
+        
+        :param tool_name: Name of the tool (e.g., 'terraform', 'ansible')
+        :return: Path to the directory containing the tool's files, or None if not found
+        """
+        tool_file_patterns = {
+            'terraform': ['*.tf', '*.tfvars', '*.hcl'],
+            'ansible': ['*.yaml', '*.yml'],
+            'puppet': ['*.pp'],
+            'chef': ['*.rb'],
+            'docker': ['Dockerfile', 'docker-compose.yml', 'docker-compose.yaml'],
+            # Add more tools and their file patterns as needed
+        }
+        patterns = tool_file_patterns.get(tool_name.lower(), [])
+        if not patterns:
+            logger.warning(f"No file patterns defined for tool '{tool_name}'")
+            return None
+
+        for root, dirs, files in os.walk(self.repo_path):
+            for file in files:
+                for pattern in patterns:
+                    if fnmatch.fnmatch(file, pattern):
+                        directory = Path(root)
+                        logger.info(f"Found '{tool_name}' files in directory: {directory}")
+                        return directory
+        logger.warning(f"No directory found containing '{tool_name}' files.")
+        return None
+
+    def identify_tool_from_command(self, command: str) -> str:
+        """
+        Identifies the tool associated with a test command.
+        
+        :param command: The test command string.
+        :return: The tool name if identified, else None.
+        """
+        # Define keywords that identify each tool
+        tool_keywords = {
+            'terraform': ['terraform'],
+            'ansible': ['ansible', 'ansible-playbook'],
+            'puppet': ['puppet'],
+            'chef': ['chef'],
+            'docker': ['docker', 'docker-compose'],
+            # Add more tools and their identifying keywords as needed
+        }
+
+        command_lower = command.lower()
+        for tool, keywords in tool_keywords.items():
+            for keyword in keywords:
+                if keyword in command_lower:
+                    return tool
+        return None
+
+    def get_repo_content(self) -> List[Path]:
+        """
+        Collects and returns the relative paths of relevant IaC and CI/CD files from the repository.
+        """
+        relevant_files = []
+        
+        try:
+            # Define file patterns for IaC and CI/CD tools
+            iac_file_patterns = [
+                '*.tf', '*.tfvars', '*.hcl',                 # Terraform
+                '*.yaml', '*.yml', '*.json',                 # CloudFormation, Ansible, etc.
+                '*.pp',                                      # Puppet
+                '*.rb',                                      # Chef
+                'Dockerfile',                                # Docker
+                'docker-compose.yml', 'docker-compose.yaml'  # Docker Compose
+            ]
+            cicd_file_patterns = [
+                '.github/workflows/*.yml', '.github/workflows/*.yaml',  # GitHub Actions
+                '.circleci/config.yml',                                  # CircleCI
+                '.travis.yml',                                           # Travis CI
+                'Jenkinsfile',                                           # Jenkins
+                '.gitlab-ci.yml',                                        # GitLab CI
+                'azure-pipelines.yml',                                   # Azure Pipelines
+                'appveyor.yml',                                          # AppVeyor
+                'bitbucket-pipelines.yml',                               # Bitbucket Pipelines
+                '.drone.yml',                                            # Drone CI
+                'teamcity-settings.kts'                                  # TeamCity
+            ]
+
+            # Extract file names without patterns for faster lookup using sets
+            iac_file_names = set(pattern for pattern in iac_file_patterns if '/' not in pattern and '*' not in pattern)
+            cicd_file_names = set(pattern for pattern in cicd_file_patterns if '/' not in pattern and '*' not in pattern)
+
+            # Patterns that include directories or wildcards
+            iac_file_patterns_with_glob = [pattern for pattern in iac_file_patterns if '/' in pattern or '*' in pattern]
+            cicd_file_patterns_with_glob = [pattern for pattern in cicd_file_patterns if '/' in pattern or '*' in pattern]
+
+            # Combine all patterns for easier checking
+            all_patterns_with_glob = iac_file_patterns_with_glob + cicd_file_patterns_with_glob
+
+            # Walk through the repository
+            for root, dirs, files in os.walk(self.repo_path):
+                for file in files:
+                    file_path = Path(root) / file
+                    relative_path = file_path.relative_to(self.repo_path)
+
+                    # First, check if the file name is in the sets of IaC or CI/CD file names
+                    if file in iac_file_names or file in cicd_file_names:
+                        relevant_files.append(relative_path)
+                        continue  # Skip to next file to prevent duplicates
+
+                    # Then, check if the relative path matches any of the glob patterns
+                    if any(relative_path.match(pattern) for pattern in all_patterns_with_glob):
+                        relevant_files.append(relative_path)
+                        continue  # Skip to next file to prevent duplicates
+
+            if not relevant_files:
+                logger.info("No relevant IaC or CI/CD files found in the repository.")
+                return []
+            else:
+                return relevant_files
+
+        except Exception as e:
+            logger.error(f"Error reading repository content: {e}")
+            return []
+
+
 
     def ensure_aws_credentials(self):
         """
@@ -177,34 +338,6 @@ class forgeAgent:
             logger.error(f"Error running command {' '.join(command)}: {e}")
             raise
 
-    async def terraform_init(self) -> Dict[str, str]:
-        logger.info("Running 'terraform init'")
-        result = await self.run_terraform_command(['terraform', 'init'])
-        if result['stderr']:
-            logger.error(f"Terraform init error: {result['stderr']}")
-        else:
-            logger.info("Terraform init completed successfully.")
-        return result
-
-
-    async def terraform_plan(self) -> Dict[str, str]:
-        logger.info("Running 'terraform plan'")
-        result = await self.run_terraform_command(['terraform', 'plan', '-out=plan.out'])
-        if result['stderr']:
-            logger.error(f"Terraform plan error: {result['stderr']}")
-        else:
-            logger.info("Terraform plan completed successfully.")
-        return result
-
-    async def terraform_apply(self) -> Dict[str, str]:
-        logger.info("Running 'terraform apply'")
-        result = await self.run_terraform_command(['terraform', 'apply', 'plan.out'])
-        if result['stderr']:
-            logger.error(f"Terraform apply error: {result['stderr']}")
-        else:
-            logger.info("Terraform apply completed successfully.")
-        return result
-
     async def analyze_plan(self) -> bool:
         """
         Analyzes the Terraform plan to ensure it aligns with the user's query.
@@ -238,56 +371,174 @@ class forgeAgent:
             logger.error(f"Error analyzing Terraform plan: {e}")
             return False
 
-    async def automate_terraform_workflow(self) -> bool:
+
+    async def automate_testing_workflow(self, tests: List[str]) -> bool:
         """
-        Automates the Terraform workflow: init, plan, analyze, apply.
+        Automates the testing workflow by generating test commands via the LLM and executing them.
         
         :return: True if the workflow succeeds, False otherwise.
         """
-        retry_count = 0
+        print(f"Running tests... {tests}")
 
-        while retry_count < self.max_retries:
-            logger.info(f"Terraform workflow attempt {retry_count + 1}")
-            print(f"\n[Attempt {retry_count + 1} of {self.max_retries}] Running Terraform workflow...")
+        
+        passed_tests, failed_test, error_message = await self.run_tests(tests)
+        
+        return passed_tests, failed_test, error_message
 
-            # Step 1: terraform init
-            plan_result = await self.terraform_init()
-            if plan_result['stderr']:
-                await self.handle_error(f"terraform init failed: {plan_result['stderr']}", command="terraform init")
-                retry_count += 1
+    from typing import Tuple, List, Optional
+
+    import asyncio
+    import os
+    import pty
+    from typing import List, Tuple, Optional
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    async def run_tests(self, tests: List[str]) -> Dict[str, Optional[object]]:
+        """
+        Executes the test commands generated by the LLM with a retry mechanism.
+        
+        :param tests: List of test commands to execute.
+        :return: Dictionary containing:
+                - 'successful_commands': List of commands that executed successfully.
+                - 'failed_command': The command that failed after retries (if any).
+                - 'error': The error message associated with the failed command (if any).
+        """
+        logger.info("Running generated test commands.")
+        
+        successful_commands = []
+        failed_command = None
+        error_message = None
+        max_retries = 3  # Maximum number of retries per command
+
+        for test_command in tests:
+            if not test_command:
+                logger.error("Test command is missing in the test object.")
                 continue
 
-            # Step 2: terraform plan
-            plan_result = await self.terraform_plan()
-            if plan_result['stderr']:
-                await self.handle_error(f"terraform plan failed: {plan_result['stderr']}", command="terraform plan")
-                retry_count += 1
-                continue
+            # Determine the tool associated with the command
+            tool = self.identify_tool_from_command(test_command)
+            if not tool:
+                logger.warning(f"Could not identify tool for command: {test_command}")
+                cwd = str(self.repo_path.resolve())
+            else:
+                # Find the directory for the tool
+                tool_directory = self.find_tool_directory(tool)
+                if tool_directory:
+                    cwd = str(tool_directory.resolve())
+                    logger.info(f"Setting cwd to '{cwd}' for tool '{tool}'")
+                else:
+                    logger.warning(f"No directory found for tool '{tool}'. Using repository root.")
+                    cwd = str(self.repo_path.resolve())
 
-            # Step 3: Analyze the plan
-            if not await self.analyze_plan():
-                await self.handle_error("Terraform plan does not align with the user query.", command="terraform plan")
-                retry_count += 1
-                continue
+            logger.info(f"Preparing to execute test command: '{test_command}' in directory: '{cwd}'")
 
-            # Step 4: terraform apply
-            apply_result = await self.terraform_apply()
-            if apply_result['stderr']:
-                await self.handle_error(f"terraform apply failed: {apply_result['stderr']}", command="terraform apply")
-                retry_count += 1
-                continue
+            # Initialize retry counter
+            retry_count = 0
+            while retry_count < max_retries:
+                logger.info(f"Attempt {retry_count + 1} for command: '{test_command}'")
+                process = await asyncio.create_subprocess_shell(
+                test_command,
+                    cwd=cwd,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                    env=os.environ.copy()
+                )
+                stdout, stderr = await process.communicate()
+                stdout_text = strip_ansi_codes(stdout.decode().strip())
+                stderr_text = strip_ansi_codes(stderr.decode().strip())
 
-            # If all steps succeeded
-            logger.info("Terraform workflow completed successfully.")
-            print("[Success] Terraform changes applied successfully.")
-            await self.cleanup_terraform_files()
-            return True
+                logger.debug(f"Test command stdout: {stdout_text}")
+                logger.debug(f"Test command stderr: {stderr_text}")
 
-        # After max retries, prompt the user
-        logger.error("Maximum retry attempts reached. Prompting user for manual intervention.")
-        print("\n[Error] Maximum retry attempts reached. Please review the repository and make necessary edits manually.")
-        await self.prompt_user_for_manual_edits()
-        return False
+                if process.returncode == 0:
+                    logger.info(f"Test command succeeded: '{test_command}'")
+                    print(f"[Test Passed] {test_command}")
+                    successful_commands.append(test_command)
+                    break  # Exit the retry loop and proceed to the next command
+                else:
+                    retry_count += 1
+                    await self.handle_error(stderr_text, test_command)
+                    logger.error(f"Test command '{test_command}' failed with error: {stderr_text}")
+                    if retry_count < max_retries:
+                        logger.info(f"Retrying command '{test_command}' (Attempt {retry_count + 1}/{max_retries})...")
+                    else:
+                        logger.error(f"Command '{test_command}' failed after {max_retries} attempts.")
+
+                # After retries, check if the command was successful
+            if retry_count == max_retries and process.returncode != 0:
+                print("I need help from you!!")
+
+                return successful_commands, test_command, stderr_text
+                
+        return successful_commands, None, None
+             
+
+    def interact_with_subprocess(self, child):
+        try:
+            while True:
+                index = child.expect([
+                    r'Enter a value.*?:',
+                    r'Error:.*',
+                    r'Do you want to perform these actions.*\?',
+                    pexpect.EOF,
+                    pexpect.TIMEOUT
+                ], timeout=10)
+
+                if index == 0:
+                    # Prompt for input
+                    prompt = child.before + child.after
+                    user_input = input(f"Subprocess is requesting input: {prompt}\nYour input: ").strip()
+                    child.sendline(user_input)
+                elif index == 1:
+                    # Error detected
+                    error_message = child.before + child.after
+                    logger.error(f"Error in subprocess: {error_message}")
+                    return False
+                elif index == 2:
+                    # Confirmation prompt
+                    child.sendline('yes')
+                elif index == 3:
+                    # EOF
+                    break
+                elif index == 4:
+                    # Timeout
+                    continue
+
+
+                return True
+            
+        except Exception as e:
+        
+            logger.error(f"Error interacting with subprocess: {e}")
+            return False
+
+
+    def is_input_prompt(self, output_line: str) -> bool:
+        """
+        Determines if the output line is prompting for user input.
+
+        :param output_line: A line of output from the subprocess.
+        :return: True if an input prompt is detected, False otherwise.
+        """
+        # Define patterns that indicate an input prompt
+        prompt_patterns = [
+            "Enter a value",
+         ]
+        return any(pattern.lower() in remove_ansi_sequences(output_line).lower() for pattern in prompt_patterns)
+
+    async def prompt_user_for_input(self, prompt_message: str) -> str:
+        """
+        Prompts the user for input based on the message from the subprocess.
+
+        :param prompt_message: The prompt message displayed by the subprocess.
+        :return: The user's input as a string.
+        """
+        print(f"\nSubprocess is requesting input: {prompt_message}")
+        user_input = input("Your input: ").strip()
+        return user_input
+
 
     async def cleanup_terraform_files(self):
         """
@@ -302,27 +553,16 @@ class forgeAgent:
             logger.error(f"Failed to clean up Terraform files: {e}")
 
     async def handle_error(self, error_message: str, command: str):
+        print("HANDLING ERROR")
         """
         Sends the error message back to Aider for analysis and resolution.
         
         :param error_message: The error details to send.
         """
         logger.info("Sending error back to Aider for resolution.")
-        try:
-            # Define a new prompt to send back the error
-            prompt = f"""
-            An error occurred during the Terraform workflow when running the command: {command}:
 
-            "{error_message}"
-            
-            Please give a response that includes the error itself, and provide guidance or corrective actions to resolve it.
-            """
-            # Generate a response from LLM
-            response_task = self.llm_handler.generate_error_query(prompt)
-            # Send the response back to forge
-            await self.execute_subtask(response_task)
-        except Exception as e:
-            logger.error(f"Failed to handle error with Aider: {e}")
+        await self.execute_subtask("Please solve this error that stemmed from this command: " + command + ". The error was:" + error_message)
+
 
     async def prompt_user_for_manual_edits(self):
         """
@@ -523,11 +763,13 @@ class forgeAgent:
                     else:
                         logger.info(f"Entry '{entry}' already exists in .gitignore")
 
+
     async def handle_user_interaction(self):
         """Handles the interaction with the user and task decomposition"""
         print("Type your IaC query below. Type 'exit' to quit.\n")
 
         user_query = input("Enter your IaC query: ").strip()
+        self.user_query = user_query
         if not user_query:
             logger.warning("Empty query provided.")
             print("Please enter a valid query.\n")
@@ -549,13 +791,16 @@ class forgeAgent:
         # Put into architect mode, and send query. Automate yesses 
         await self.execute_subtask("\\architect " + starting_query)
 
-        # Automate Terraform workflow
-        workflow_success = await self.automate_terraform_workflow()
-        if not workflow_success:
-            logger.error("Terraform workflow failed after maximum retries.")
-            return False
+        # Automate testing workflow
+        tests = self.llm_handler.generate_test_functions(self.user_query, self.starting_query)
 
-        await self.close_forge()
+        passed_tests, failed_test, error_message = await self.automate_testing_workflow([i.test for i in tests])
+        
+        if self.applyChanges:
+            commands = self.llm_handler.generate_apply_functions(self.starting_query, " ".join([i.test for i in tests]))
+        
+            # Automate application workflow
+            passed_tests, failed_test, error_message = await self.automate_testing_workflow([i.command for i in commands])
     
         self.update_gitignore()
 
@@ -566,13 +811,13 @@ class forgeAgent:
 
         logger.info(f"Pushed changes to branch '{self.git_handler.branch_name}'")
 
-        # Create a pull request
-        pr = self.git_handler.create_pull_request(
-            title=user_query,
-            body="This PR adds forge's changes to satisfy your query to the repository."
-        )
-
-        logger.info(f"Pull request created: {pr.html_url}")
+        if self.autoPR:
+            pr = self.git_handler.create_pull_request(
+                title=user_query,
+                body="This PR adds forge's changes to satisfy your query to the repository."
+            )
+            logger.info(f"Pull request created: {pr.html_url}")
+            print(f"Pull request created: {pr.html_url}")
 
         return self.repo
     

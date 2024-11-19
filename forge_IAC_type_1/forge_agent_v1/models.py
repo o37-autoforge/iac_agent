@@ -31,7 +31,18 @@ class TaskDecomposition(BaseModel):
         ..., description="List of all subtasks needed to complete the IaC request."
     )
 
-class TestFunctions(BaseModel):
-    tests: List[str] = Field(
-        ..., description="List of all subtasks needed to complete the IaC request."
+class testCommands(BaseModel):
+    test: str = Field(..., description="The question to ask the user.")
+
+class Tests(BaseModel):
+    tests: List[testCommands] = Field(
+        ..., description="List of questions to ask the user about their IaC requirements."
+    )
+
+class applyCommands(BaseModel):
+    command: str = Field(..., description="The commands to use to apply IaC.")
+
+class Commands(BaseModel):
+    commands: List[applyCommands] = Field(
+        ..., description="List of commannds to use to apply the IaC changes."
     )

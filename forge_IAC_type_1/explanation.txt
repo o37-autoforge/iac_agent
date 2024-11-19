@@ -1,4 +1,10 @@
 This agent will utilize the forge agent to execute code editing requests. It edit IaC, lint, plan, and apply the code. After this, it will produce reports, incluing a cost estimation and visualizations.
 
 
+Test:
 
+"Set up an auto-scaling policy that adds a new EC2 instance if CPU usage exceeds 80% for 5 minutes."
+
+"Update the RDS database instance to use a larger storage size, ensuring no downtime."
+
+"Generate a new Terraform plan to add a backup policy for the RDS database and show the changes."

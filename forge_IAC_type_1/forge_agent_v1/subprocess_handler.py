@@ -5,7 +5,7 @@ import pexpect
 import asyncio
 import logging
 from pathlib import Path
-
+from typing import List
 logger = logging.getLogger(__name__)
 
 class SubprocessHandler:
@@ -13,13 +13,15 @@ class SubprocessHandler:
         self.repo_path = repo_path
         self.child = None
 
-    def start_forge(self, openai_api_key: str):
+    
+    def start_forge(self, openai_api_key: str, relevant_files: List[str]):
         """
         Starts the forge process using pexpect and waits for the initial prompt.
         """
         combined_command = f"export OPENAI_API_KEY={openai_api_key} TERM=dumb && forge --yes"
         logger.info(f"Starting forge with command: {combined_command}")
 
+        
         try:
             self.child = pexpect.spawn(
                 "bash",
@@ -33,15 +35,24 @@ class SubprocessHandler:
             self.child.expect(expected_prompt, timeout=120)
             logger.info("forge started successfully and is ready to accept commands.")
 
-            # Add Terraform files to context
-            repo_files = list(self.repo_path.glob("**/*.tf"))
-            if repo_files:
-                for file in repo_files:
-                    relative_path = file.relative_to(self.repo_path)
-                    self.child.sendline(f"/add {relative_path}")
-                    self.child.expect(">", timeout=60)
-                    logger.info(f"Added file to context: {relative_path}")
+            # Add IaC related files to context
+            
+            fileContext = ""
 
+            print(f"Relevant files: {relevant_files}")
+            if relevant_files:
+                for file in relevant_files:
+
+                    with open(self.repo_path / file, 'r', encoding='utf-8') as f:
+
+                        print(f"Adding file to context: {file}")
+                        self.child.sendline(f"/add {self.repo_path / file}")
+                        self.child.expect(">", timeout=60)
+
+                        content = f.read()
+                        fileContext += f"=== {file} ===\n{content}\n"
+
+            return fileContext
         except pexpect.TIMEOUT:
             logger.error("Timed out waiting for forge to start.")
             if self.child:

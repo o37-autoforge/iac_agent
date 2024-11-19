@@ -3,7 +3,17 @@ import json
 import logging
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
-from .models import forgeQuestions, UserQuestions, TaskDecomposition, TestFunctions, UserQuestion, forgeQuery, errorQuery   
+from .models import (
+    forgeQuestions,
+    UserQuestions,
+    TaskDecomposition,
+    Tests,
+    applyCommands,  
+    Commands,
+    UserQuestion,
+    forgeQuery,
+    errorQuery,     
+)
 from typing import List, Dict
 from pathlib import Path
 
@@ -13,7 +23,7 @@ class LLMHandler:
     def __init__(self, repo_path: str):
         self.llm = ChatOpenAI(
             model="gpt-4o",
-            temperature=0.5,
+            temperature=0.6,
             openai_api_key=os.getenv("OPENAI_API_KEY")
         )
         self.repo_path = Path(repo_path)
@@ -22,7 +32,8 @@ class LLMHandler:
         self.query_llm = self.llm.with_structured_output(forgeQuery, method="json_mode")
         self.user_questions_llm = self.llm.with_structured_output(UserQuestions, method="json_mode")
         self.decomposition_llm = self.llm.with_structured_output(TaskDecomposition, method="json_mode")
-        self.test_functions_llm = self.llm.with_structured_output(TestFunctions, method="json_mode")
+        self.test_functions_llm = self.llm.with_structured_output(Tests, method="json_mode")
+        self.apply_functions_llm = self.llm.with_structured_output(Commands, method="json_mode")
         self.error_query_llm = self.llm.with_structured_output(errorQuery, method="json_mode")
         self.response_llm = ChatOpenAI(
             model="gpt-4o",
@@ -30,43 +41,112 @@ class LLMHandler:
             openai_api_key=os.getenv("OPENAI_API_KEY")
         )
 
-    def get_repo_content(self) -> str:
-        """
-        Reads and returns the content of relevant files from the repository.
-        Focuses on Terraform files and related infrastructure code.
-        """
-        relevant_files = []
-        try:
-            # Walk through the repository
-            for root, _, files in os.walk(self.repo_path):
-                for file in files:
-                    # Check for relevant file extensions
-                    if file.endswith(('.tf', '.tfvars', '.hcl')):
-                        file_path = Path(root) / file
-                        try:
-                            with open(file_path, 'r', encoding='utf-8') as f:
-                                content = f.read()
-                                relevant_files.append(f"=== {file} ===\n{content}\n")
-                        except Exception as e:
-                            logger.error(f"Error reading file {file_path}: {e}")
+    def generate_test_functions(self, original_query: str, forge_query: str) -> List[str]:
+        prompt = PromptTemplate(
+            template="""
+            You are an expert Infrastructure as Code (IaC) developer. Your end user gave you a task to implement the following query: {original_query}.
+             
+            You added specifics to the query to better understand the user's request: {forge_query}.
 
-            if not relevant_files:
-                return "No existing Terraform files found in the repository."
+            You are now tasked with generating test functions (CLI commands) to test the implementation of the user's request. 
+             
+            These commands will be run prior to applying the changes to the infrastructure. 
             
-            return "\n".join(relevant_files)
+            For example, if terraform is being used, you can use terraform validate, terraform plan. Dont include commands that apply the changes to the infrastructure. Dont include commands that destroy the infrastructure. Dont include commands that are not related to testing the IaC. Dont include commands that query the infrastructure, since its not even applied yet.
 
+            **Output Format:**
+
+            Return a JSON object with a single key "tests", where "tests" is a list of test descriptions.
+
+            **Example Output:**
+
+            ```json
+            {{
+                "tests": [
+                    {{
+                        "test": "terraform init"
+                    }},
+                    {{
+                        "test": "terraform validate"
+                    }},
+                    {{
+                        "test": "terraform plan"
+                    }}
+                ]
+            }}
+            ```
+            """,
+            input_variables=["original_query", "forge_query"]
+        )
+
+        try:
+            print("Invoking test functions LLM")
+            response = self.test_functions_llm.invoke(
+                prompt.format(
+                    original_query=original_query,
+                    forge_query=forge_query,
+                )
+            )
+            print(f"LLM response: {response}")
+            logger.debug(f"Generated LLM response: {response}")
+            return response.tests
         except Exception as e:
-            logger.error(f"Error reading repository content: {e}")
-            return "Error reading repository content."
+            logger.error(f"Failed to generate response using LLM: {e}")
+            raise
+    
+    def generate_apply_functions(self, forge_query: str, ran_tests: str) -> List[str]:
+        prompt = PromptTemplate(
+            template="""
+            You are an expert Infrastructure as Code (IaC) developer.
+
+            You have already implemented the user's request: {forge_query}.
+
+            You ran the following tests on the codebase: {ran_tests}. They all ran successfully.
+
+            Now you are tasked with generating CLI commands to apply the changes to the infrastructure. 
+
+            **Output Format:**
+
+            Return a JSON object with a single key "commands", where "commands" is a list of CLI commands to apply the changes to the infrastructure.
+
+            **Example Output:**
+
+            ```json
+            {{
+                "commands": [
+                    {{
+                        "command": "terraform apply"
+                    }},
+                ]
+            }}
+            ```
+            """,
+            input_variables=["forge_query", "ran_tests"]
+        )
+
+        try:
+            print("Invoking test functions LLM")
+            response = self.apply_functions_llm.invoke(
+                prompt.format(
+                    forge_query=forge_query,
+                    ran_tests=ran_tests,
+                )
+            )
+            print(f"LLM response: {response}")
+            logger.debug(f"Generated LLM response: {response}")
+            return response.commands
+        except Exception as e:
+            logger.error(f"Failed to generate response using LLM: {e}")
+            raise
+    
 
     def generate_forge_query(self, user_query: str, user_responses: List[dict]) -> str:
         formatted_user_responses = [
-             {
+            {
                 "question": resp['question']['question'],
                 "response": resp['response']
             } for resp in user_responses
         ]
-        # Compose a prompt for the LLM based on the user's query and their answers
         prompt = f"""
         You are an expert developer acting as a copilot. Your job is to generate a detailed task description for forge, an AI coding agent, to implement the user's request and update the codebase accordingly. Base your task description on the user's request and their answers to specific questions.
 
@@ -86,13 +166,13 @@ class LLMHandler:
 
         ```json
         {{
-        "task": "Implement a new S3 bucket named 'my-unique-bucket-name' with private access, in the 'us-east-1' region."
+            "task": "Create a new virtual network with specified subnets and security groups as per user requirements."
         }}
         ```
         """
 
         try:
-            print("Invoking query LLM")
+            print("Invoking forge query LLM")
             response = self.query_llm.invoke(prompt)
             print(f"LLM response: {response}")
             logger.debug(f"Generated LLM response: {response}")
@@ -101,15 +181,11 @@ class LLMHandler:
             logger.error(f"Failed to generate response using LLM: {e}")
             raise
 
-
     def generate_user_questions(self, user_query: str) -> List[UserQuestion]:
-        """
-        Generates questions to ask the user based on their query.
-        """
         try:
             prompt = PromptTemplate(
                 template="""
-                You are an expert developer acting as a copilot. Your job is to generate specific questions that need to be answered by the user before implementing their request.
+                You are an expert Infrastructure as Code (IaC) developer acting as a copilot. Your job is to generate specific questions that need to be answered by the user before implementing their request.
 
                 User's Query: {user_query}
 
@@ -128,25 +204,23 @@ class LLMHandler:
 
                 ```json
                 {{
-                "questions": [
-                    {{
-                    "question": "What is the name of the resource?",
-                    "context": "Resource naming helps with identification and management.",
-                    "default": "my-resource"
-                    }},
-                    {{
-                    "question": "Do you have specific tags you want to apply?",
-                    "context": "Tags help with resource organization and cost tracking.",
-                    "default": "{{\\"Environment\\": \\"dev\\", \\"Owner\\": \\"team-name\\"}}"
-                    }}
-                ]
+                    "questions": [
+                        {{
+                            "question": "Which cloud provider should the infrastructure be deployed to?",
+                            "context": "Different cloud providers have specific configurations and services.",
+                            "default": "AWS"
+                        }},
+                        {{
+                            "question": "Do you have any naming conventions for resources?",
+                            "context": "Consistent naming helps in resource management and identification.",
+                            "default": "project-name-resource-type"
+                        }}
+                    ]
                 }}
                 ```
                 """,
                 input_variables=["user_query"]
             )
-
-
 
             response = self.user_questions_llm.invoke(
                 prompt.format(
@@ -161,7 +235,7 @@ class LLMHandler:
                 # Provide some default questions as fallback
                 return [
                     UserQuestion(
-                        question="Can you provide more details about the functionality you want to implement?",
+                        question="Can you provide more details about the infrastructure you want to implement?",
                         context="Detailed requirements help in accurate implementation.",
                         default="No additional details."
                     )
@@ -175,20 +249,22 @@ class LLMHandler:
 
     def generate_error_query(self, starting_query) -> str:
         try:
-            # Modify the prompt to ensure the response format is in JSON
             prompt = f"""
             {starting_query}
 
             Please respond in a JSON format with a 'query' key. Example:
 
+            ```json
             {{
                 "query": "Provide guidance or corrective actions for the error described."
             }}
+            ```
             """
 
             response = self.error_query_llm.invoke(prompt)
             logger.debug(f"Generated LLM response: {response}")
             return response.query.strip()
         except Exception as e:
+            print(f"Failed to generate response using LLM: {e}")
             logger.error(f"Failed to generate response using LLM: {e}")
             raise
