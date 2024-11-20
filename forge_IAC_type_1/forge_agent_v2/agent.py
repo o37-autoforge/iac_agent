@@ -89,7 +89,6 @@ class forgeAgent:
 
         self.max_retries = 3  # Maximum number of retries for Terraform workflow
 
-
     def identify_tool_from_command(self, command: str) -> Optional[str]:
         """
         Identifies the tool associated with a test command.

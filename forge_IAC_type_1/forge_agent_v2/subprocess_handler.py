@@ -33,18 +33,19 @@ class SubprocessHandler:
 
             expected_prompt = 'Use /help <question> for help, run "forge --help" to see cmd line arg'
             self.child.expect(expected_prompt, timeout=120)
-            # logger.info("forge started successfully and is ready to accept commands.")
+            logger.info("forge started successfully and is ready to accept commands.")
+
             # Add IaC related files to context
-    
+            
             fileContext = ""
 
-            # print(f"Relevant files: {relevant_files}")
+            print(f"Relevant files: {relevant_files}")
             if relevant_files:
                 for file in relevant_files:
 
                     with open(self.repo_path / file, 'r', encoding='utf-8') as f:
 
-                        # print(f"Adding file to context: {file}")
+                        print(f"Adding file to context: {file}")
                         self.child.sendline(f"/add {self.repo_path / file}")
                         self.child.expect(">", timeout=60)
 
@@ -52,42 +53,49 @@ class SubprocessHandler:
                         fileContext += f"=== {file} ===\n{content}\n"
 
             return fileContext
-        except Exception as e:
-            # logger.error("Timed out waiting for forge to start.")
+        except pexpect.TIMEOUT:
+            logger.error("Timed out waiting for forge to start.")
             if self.child:
                 self.child.close(force=True)
-            
+            raise
+        except pexpect.EOF:
+            logger.error("forge terminated unexpectedly during startup.")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to initialize forge: {str(e)}")
+            if self.child:
+                self.child.close(force=True)
+            raise
+
     def close_forge(self):
         """
         Closes the forge process gracefully.
         """
         try:
-            # logger.info("Sending exit command to forge.")
+            logger.info("Sending exit command to forge.")
             self.child.sendline("/exit")
             self.child.expect(pexpect.EOF, timeout=60)
             self.child.close()
 
-            # if self.child.exitstatus != 0:
-                # logger.warning(f"forge exited with non-zero status: {self.child.exitstatus}")
-            # else:
-                # logger.info("forge exited successfully.")
-                # continue
+            if self.child.exitstatus != 0:
+                logger.warning(f"forge exited with non-zero status: {self.child.exitstatus}")
+            else:
+                logger.info("forge exited successfully.")
 
         except pexpect.TIMEOUT:
-            # logger.error("Timed out waiting for forge to terminate.")
+            logger.error("Timed out waiting for forge to terminate.")
             self.child.close(force=True)
-            
         except Exception as e:
-            # logger.error(f"Error while closing forge: {str(e)}")
+            logger.error(f"Error while closing forge: {str(e)}")
             self.child.close(force=True)
 
-    async def send_command(self, command: str) -> str:
+    async def send_command(self, command: str, current_mode: str) -> str:
         """
         Sends a command to forge and returns the response.
         """
         while True:
             self.child.sendline(command.replace("\n", ""))
-            # logger.debug(f"Sent command to forge: {command}")
+            logger.debug(f"Sent command to forge: {command}")
 
             try:
                 self.child.expect([r'\b>>>>>> REPLACE\b', r'(?:\\[Yes\\]|Tokens)'], timeout=25)

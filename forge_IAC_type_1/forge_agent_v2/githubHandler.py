@@ -5,23 +5,10 @@ from dotenv import load_dotenv
 import os
 import shutil
 from github import Github  # Import PyGithub
-import warnings
-from langchain_core.globals import set_verbose, set_debug
-
-# Disable verbose logging
-set_verbose(False)
-
-# Disable debug logging
-set_debug(False)
-
-# Suppress all warnings
-warnings.filterwarnings("ignore")
-warnings.filterwarnings("ignore", module="langchain")
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # Set up logging
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class GitHandler:
     def __init__(self):
@@ -44,7 +31,7 @@ class GitHandler:
         try:
             # Remove existing repository if it exists
             if self.repo_path.exists():
-                # logger.info(f"Removing existing repository at {self.repo_path}")
+                logger.info(f"Removing existing repository at {self.repo_path}")
                 shutil.rmtree(self.repo_path)
 
             # Create parent directories if they don't exist
@@ -54,21 +41,21 @@ class GitHandler:
             auth_url = self.repo_url.replace('https://', f'https://{self.github_token}@')
 
             # Clone repository
-            # logger.info(f"Cloning repository to {self.repo_path}")
+            logger.info(f"Cloning repository to {self.repo_path}")
             repo = git.Repo.clone_from(
                 auth_url,
                 self.repo_path,
                 branch=self.main_branch  # Clone the main branch
             )
 
-            # logger.info(f"Successfully cloned repository to {self.repo_path}")
+            logger.info(f"Successfully cloned repository to {self.repo_path}")
             return repo
 
         except git.GitCommandError as e:
-            # logger.error(f"Failed to clone repository: {str(e)}")
+            logger.error(f"Failed to clone repository: {str(e)}")
             raise
         except Exception as e:
-            # logger.error(f"Unexpected error: {str(e)}")
+            logger.error(f"Unexpected error: {str(e)}")
             raise
 
     def create_pull_request(self, title, body):
@@ -101,8 +88,7 @@ class GitHandler:
             # Close existing pull requests
             for pr in pulls:
                 print(f"Closing PR #{pr.number}")
-                pr.delete() 
-
+                pr.edit(state='closed')
 
             # Create the pull request
             pr = github_repo.create_pull(
@@ -112,9 +98,9 @@ class GitHandler:
                 base=self.main_branch
             )
 
-            # logger.info(f"Successfully created pull request: {pr.html_url}")
+            logger.info(f"Successfully created pull request: {pr.html_url}")
             return pr
 
         except Exception as e:
-            # logger.error(f"Failed to create pull request: {str(e)}")
+            logger.error(f"Failed to create pull request: {str(e)}")
             raise

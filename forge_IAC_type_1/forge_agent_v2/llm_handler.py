@@ -50,9 +50,9 @@ class LLMHandler:
 
             You are now tasked with generating test functions (CLI commands) to test the implementation of the user's request. 
              
-            These commands will be run prior to applying the changes to the infrastructure.  
+            These commands will be run prior to applying the changes to the infrastructure. 
             
-            For example, if terraform is being used, you can use terraform validate, terraform plan. If you use "terraform plan", make sure output the plan to a file in the command.Dont include commands that apply the changes to the infrastructure. Dont include commands that destroy the infrastructure. Dont include commands that are not related to testing the IaC. Dont include commands that query the infrastructure, since its not even applied yet.
+            For example, if terraform is being used, you can use terraform validate, terraform plan. Dont include commands that apply the changes to the infrastructure. Dont include commands that destroy the infrastructure. Dont include commands that are not related to testing the IaC. Dont include commands that query the infrastructure, since its not even applied yet.
 
             **Output Format:**
 
