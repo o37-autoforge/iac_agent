@@ -3,15 +3,51 @@
 import re
 import string
 
-def strip_ansi_codes(text: str) -> str:
-    """
-    Removes ANSI escape sequences from the given text.
+# forge_agent/utils.py
 
-    :param text: The text containing ANSI escape sequences.
-    :return: Cleaned text without ANSI codes.
-    """
-    ansi_escape = re.compile(r'\x1B[@-_][0-?]*[ -/]*[@-~]')
+import re
+
+def strip_ansi_codes(text):
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', text)
+
+def remove_consecutive_duplicates(text):
+    lines = text.split('\n')
+    new_lines = []
+    prev_line = None
+    for line in lines:
+        if line != prev_line:
+            new_lines.append(line)
+            prev_line = line
+    return '\n'.join(new_lines)
+
+def identify_tool_from_command(command: str) -> str:
+    """
+    Identifies the tool associated with a test command.
+    """
+    tool_keywords = {
+        'terraform': ['terraform'],
+        'ansible': ['ansible', 'ansible-playbook'],
+        'puppet': ['puppet'],
+        'chef': ['chef'],
+        'docker': ['docker', 'docker-compose'],
+    }
+
+    command_lower = command.lower()
+    for tool, keywords in tool_keywords.items():
+        for keyword in keywords:
+            if keyword in command_lower:
+                return tool
+    return None
+
+def is_input_prompt(output_line: str) -> bool:
+    """
+    Determines if the output line is prompting for user input.
+    """
+    prompt_patterns = [
+        "Enter a value",
+    ]
+    return any(pattern.lower() in strip_ansi_codes(output_line).lower() for pattern in prompt_patterns)
 
 def remove_consecutive_duplicates(text: str) -> str:
     """
@@ -81,3 +117,5 @@ def clean_forge_response(response: str) -> str:
     answer = answer.strip()
     
     return answer
+
+

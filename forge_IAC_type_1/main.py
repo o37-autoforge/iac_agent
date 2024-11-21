@@ -1,14 +1,11 @@
 # main.py
 
 import asyncio
-import logging
-import sys
-import traceback
-from forge_agent_v1.agent import forgeAgent
+from forge_agent_v1_1.agent import forgeAgent
 
 def main():
-    agent = forgeAgent(applyChanges = False, autoPR = False)
-    asyncio.run(agent.handle_user_interaction())
+    agent = forgeAgent(applyChanges = True, autoPR = True)
+    asyncio.run(agent.handle_query())
 
 if __name__ == "__main__":
-    main()
+    main()  

@@ -7,6 +7,12 @@ import logging
 from pathlib import Path
 from typing import List
 logger = logging.getLogger(__name__)
+def disable_logging():
+    original_log_handlers = logging.getLogger().handlers[:]
+    for handler in original_log_handlers:
+        logging.getLogger().removeHandler(handler)
+
+disable_logging()
 
 class SubprocessHandler:
     def __init__(self, repo_path: Path):
@@ -22,8 +28,7 @@ class SubprocessHandler:
         logger.info(f"Starting forge with command: {combined_command}")
 
         
-        try:
-            self.child = pexpect.spawn(
+        self.child = pexpect.spawn(
                 "bash",
                 ["-c", combined_command],
                 cwd=str(self.repo_path.resolve()),
@@ -31,41 +36,28 @@ class SubprocessHandler:
                 timeout=120  # Increased timeout to accommodate startup time
             )
 
-            expected_prompt = 'Use /help <question> for help, run "forge --help" to see cmd line arg'
-            self.child.expect(expected_prompt, timeout=120)
-            logger.info("forge started successfully and is ready to accept commands.")
+        expected_prompt = 'Use /help <question> for help, run "forge --help" to see cmd line arg'
+        self.child.expect(expected_prompt, timeout=120)
+        logger.info("forge started successfully and is ready to accept commands.")
 
-            # Add IaC related files to context
+        # Add IaC related files to context
             
-            fileContext = ""
+        fileContext = ""
 
-            print(f"Relevant files: {relevant_files}")
-            if relevant_files:
-                for file in relevant_files:
+        # print(f"Relevant files: {relevant_files}")
+        if relevant_files:
+            for file in relevant_files:
 
-                    with open(self.repo_path / file, 'r', encoding='utf-8') as f:
+                with open(self.repo_path / file, 'r', encoding='utf-8') as f:
 
-                        print(f"Adding file to context: {file}")
-                        self.child.sendline(f"/add {self.repo_path / file}")
-                        self.child.expect(">", timeout=60)
+                    print(f"Adding file to context: {file}")
+                    self.child.sendline(f"/add {self.repo_path / file}")
+                    self.child.expect(">", timeout=60)
 
-                        content = f.read()
-                        fileContext += f"=== {file} ===\n{content}\n"
+                    content = f.read()
+                    fileContext += f"=== {file} ===\n{content}\n"
 
-            return fileContext
-        except pexpect.TIMEOUT:
-            logger.error("Timed out waiting for forge to start.")
-            if self.child:
-                self.child.close(force=True)
-            raise
-        except pexpect.EOF:
-            logger.error("forge terminated unexpectedly during startup.")
-            raise
-        except Exception as e:
-            logger.error(f"Failed to initialize forge: {str(e)}")
-            if self.child:
-                self.child.close(force=True)
-            raise
+        return fileContext
 
     def close_forge(self):
         """

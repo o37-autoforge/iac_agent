@@ -9,6 +9,12 @@ from github import Github  # Import PyGithub
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+def disable_logging():
+    original_log_handlers = logging.getLogger().handlers[:]
+    for handler in original_log_handlers:
+        logging.getLogger().removeHandler(handler)
+
+disable_logging()
 
 class GitHandler:
     def __init__(self):
@@ -83,7 +89,7 @@ class GitHandler:
             user = g.get_user()
 
             # Find existing pull requests from your branch
-            pulls = github_repo.get_pulls(state='open', head=f"{self.main_branch}:{self.branch_name}")
+            pulls = github_repo.get_pulls(state='open', head=self.branch_name, base=self.main_branch)
 
             # Close existing pull requests
             for pr in pulls:
