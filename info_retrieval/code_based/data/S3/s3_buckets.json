@@ -1,0 +1,26 @@
+{
+  "ResponseMetadata": {
+    "RequestId": "D4XNAS6RCD35JYFZ",
+    "HostId": "Kqilisp+AotUf9ng92HgL1S9fNIg6Vb0qgLoirldeIsbhGHPRWowrCS+QHYjWBzjqsMjcd0plBM=",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "x-amz-id-2": "Kqilisp+AotUf9ng92HgL1S9fNIg6Vb0qgLoirldeIsbhGHPRWowrCS+QHYjWBzjqsMjcd0plBM=",
+      "x-amz-request-id": "D4XNAS6RCD35JYFZ",
+      "date": "Thu, 21 Nov 2024 22:00:46 GMT",
+      "content-type": "application/xml",
+      "transfer-encoding": "chunked",
+      "server": "AmazonS3"
+    },
+    "RetryAttempts": 0
+  },
+  "Buckets": [
+    {
+      "Name": "lindsays-bucket",
+      "CreationDate": "2024-11-21 09:12:48+00:00"
+    }
+  ],
+  "Owner": {
+    "DisplayName": "team",
+    "ID": "72b535379382e38da8ebc965451b8cac97e672b2a2d0b6d70737c18938b78ef8"
+  }
+}

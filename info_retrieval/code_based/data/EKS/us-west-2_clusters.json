@@ -1,0 +1,23 @@
+{
+  "ResponseMetadata": {
+    "RequestId": "091fe1c6-56bf-4bca-ae0b-418260747200",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "date": "Thu, 21 Nov 2024 22:04:47 GMT",
+      "content-type": "application/json",
+      "content-length": "49",
+      "connection": "keep-alive",
+      "x-amzn-requestid": "091fe1c6-56bf-4bca-ae0b-418260747200",
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "*,Authorization,Date,X-Amz-Date,X-Amz-Security-Token,X-Amz-Target,content-type,x-amz-content-sha256,x-amz-user-agent,x-amzn-platform-id,x-amzn-trace-id",
+      "x-amz-apigw-id": "Bngz6FFXPHcEJnw=",
+      "access-control-allow-methods": "GET,HEAD,PUT,POST,DELETE,OPTIONS",
+      "access-control-expose-headers": "x-amzn-errortype,x-amzn-errormessage,x-amzn-trace-id,x-amzn-requestid,x-amz-apigw-id,date",
+      "x-amzn-trace-id": "Root=1-673fae7f-4f94cf2b55dfa9ef2231e7b3"
+    },
+    "RetryAttempts": 0
+  },
+  "clusters": [
+    "eks-cluster-new"
+  ]
+}

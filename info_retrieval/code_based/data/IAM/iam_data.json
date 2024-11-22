@@ -1,0 +1,523 @@
+{
+  "Users": [
+    {
+      "Path": "/",
+      "UserName": "mvp_user",
+      "UserId": "AIDA6IY35VFGWW5XZRH42",
+      "Arn": "arn:aws:iam::980921723213:user/mvp_user",
+      "CreateDate": "2024-11-12 02:23:04+00:00"
+    },
+    {
+      "Path": "/",
+      "UserName": "mvp_user_dashboard",
+      "UserId": "AIDA6IY35VFG6KU5XCROO",
+      "Arn": "arn:aws:iam::980921723213:user/mvp_user_dashboard",
+      "CreateDate": "2024-11-13 20:35:14+00:00"
+    },
+    {
+      "Path": "/",
+      "UserName": "test_user",
+      "UserId": "AIDA6IY35VFG5P2A7F7YB",
+      "Arn": "arn:aws:iam::980921723213:user/test_user",
+      "CreateDate": "2024-11-11 00:15:53+00:00"
+    }
+  ],
+  "Roles": [
+    {
+      "Path": "/aws-service-role/eks.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForAmazonEKS",
+      "RoleId": "AROA6IY35VFGYNJR3WWB6",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/eks.amazonaws.com/AWSServiceRoleForAmazonEKS",
+      "CreateDate": "2024-11-12 03:55:08+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Allows Amazon EKS to call AWS services on your behalf.",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/eks-nodegroup.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForAmazonEKSNodegroup",
+      "RoleId": "AROA6IY35VFGSWHV3SOIB",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/eks-nodegroup.amazonaws.com/AWSServiceRoleForAmazonEKSNodegroup",
+      "CreateDate": "2024-11-12 04:08:18+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks-nodegroup.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "This policy allows Amazon EKS to create and manage Nodegroups",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/autoscaling.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForAutoScaling",
+      "RoleId": "AROA6IY35VFG6ZE7J4YKU",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
+      "CreateDate": "2024-11-12 04:08:43+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "autoscaling.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Default Service-Linked Role enables access to AWS Services and Resources used or managed by Auto Scaling",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/cost-optimization-hub.bcm.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForCostOptimizationHub",
+      "RoleId": "AROA6IY35VFG23GT6K3XH",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/cost-optimization-hub.bcm.amazonaws.com/AWSServiceRoleForCostOptimizationHub",
+      "CreateDate": "2024-11-16 22:51:23+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "cost-optimization-hub.bcm.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Allows Cost Optimization Hub to retrieve organization information and collect optimization-related data and metadata.",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/ecs.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForECS",
+      "RoleId": "AROA6IY35VFG7WOT63IZQ",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS",
+      "CreateDate": "2024-11-13 01:02:34+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ecs.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Role to enable Amazon ECS to manage your cluster.",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/elasticache.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForElastiCache",
+      "RoleId": "AROA6IY35VFG7FFQFGEYC",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/elasticache.amazonaws.com/AWSServiceRoleForElastiCache",
+      "CreateDate": "2024-11-13 01:30:09+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "elasticache.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "This policy allows ElastiCache to manage AWS resources on your behalf as necessary for managing your cache.",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/elasticloadbalancing.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForElasticLoadBalancing",
+      "RoleId": "AROA6IY35VFG2EV6CTM67",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/elasticloadbalancing.amazonaws.com/AWSServiceRoleForElasticLoadBalancing",
+      "CreateDate": "2024-11-12 15:06:13+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "elasticloadbalancing.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Allows ELB to call AWS services on your behalf.",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/rds.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForRDS",
+      "RoleId": "AROA6IY35VFG24KVHSOJM",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/rds.amazonaws.com/AWSServiceRoleForRDS",
+      "CreateDate": "2024-11-13 01:02:52+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "rds.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Allows Amazon RDS to manage AWS resources on your behalf",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/support.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForSupport",
+      "RoleId": "AROA6IY35VFG7IEKHANW6",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/support.amazonaws.com/AWSServiceRoleForSupport",
+      "CreateDate": "2024-11-07 21:12:18+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "support.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Enables resource access for AWS to provide billing, administrative and support services",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/aws-service-role/trustedadvisor.amazonaws.com/",
+      "RoleName": "AWSServiceRoleForTrustedAdvisor",
+      "RoleId": "AROA6IY35VFG3P6FJS2B7",
+      "Arn": "arn:aws:iam::980921723213:role/aws-service-role/trustedadvisor.amazonaws.com/AWSServiceRoleForTrustedAdvisor",
+      "CreateDate": "2024-11-07 21:12:18+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "trustedadvisor.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "Access for the AWS Trusted Advisor Service to help reduce cost, increase performance, and improve security of your AWS environment.",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-cluster-role",
+      "RoleId": "AROA6IY35VFGVTYRVQRXY",
+      "Arn": "arn:aws:iam::980921723213:role/eks-cluster-role",
+      "CreateDate": "2024-11-13 22:47:33+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-cluster-role-GTdb4c1N",
+      "RoleId": "AROA6IY35VFG2YB42WHQD",
+      "Arn": "arn:aws:iam::980921723213:role/eks-cluster-role-GTdb4c1N",
+      "CreateDate": "2024-11-21 07:52:34+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-cluster-role-tf-2024",
+      "RoleId": "AROA6IY35VFGUUTCJKFL4",
+      "Arn": "arn:aws:iam::980921723213:role/eks-cluster-role-tf-2024",
+      "CreateDate": "2024-11-15 20:35:24+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-cluster-role-tf-2024-v1",
+      "RoleId": "AROA6IY35VFGT6K4QVFKR",
+      "Arn": "arn:aws:iam::980921723213:role/eks-cluster-role-tf-2024-v1",
+      "CreateDate": "2024-11-16 01:22:39+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-node-group-role",
+      "RoleId": "AROA6IY35VFGWH2OCG74G",
+      "Arn": "arn:aws:iam::980921723213:role/eks-node-group-role",
+      "CreateDate": "2024-11-15 19:50:54+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-node-group-role-GTdb4c1N",
+      "RoleId": "AROA6IY35VFG5KQNGCBZR",
+      "Arn": "arn:aws:iam::980921723213:role/eks-node-group-role-GTdb4c1N",
+      "CreateDate": "2024-11-21 07:52:34+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-node-group-role-tf-2024",
+      "RoleId": "AROA6IY35VFGR7OSM3MV6",
+      "Arn": "arn:aws:iam::980921723213:role/eks-node-group-role-tf-2024",
+      "CreateDate": "2024-11-15 20:35:24+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eks-node-group-role-tf-2024-v1",
+      "RoleId": "AROA6IY35VFG3ZD6YGG2D",
+      "Arn": "arn:aws:iam::980921723213:role/eks-node-group-role-tf-2024-v1",
+      "CreateDate": "2024-11-16 01:22:39+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eksctl-my-cluster-cluster-ServiceRole-LYbsZwX5yANd",
+      "RoleId": "AROA6IY35VFG7H4NTVHP7",
+      "Arn": "arn:aws:iam::980921723213:role/eksctl-my-cluster-cluster-ServiceRole-LYbsZwX5yANd",
+      "CreateDate": "2024-11-12 04:10:06+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eksctl-my-test-cluster-cluster-ServiceRole-Ccnt4ca2Zkqt",
+      "RoleId": "AROA6IY35VFGV7OLW3OO5",
+      "Arn": "arn:aws:iam::980921723213:role/eksctl-my-test-cluster-cluster-ServiceRole-Ccnt4ca2Zkqt",
+      "CreateDate": "2024-11-12 04:13:11+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eksctl-my-test-cluster-nodegroup-s-NodeInstanceRole-mkOQ3pfuzCgy",
+      "RoleId": "AROA6IY35VFGVVPMYKZPJ",
+      "Arn": "arn:aws:iam::980921723213:role/eksctl-my-test-cluster-nodegroup-s-NodeInstanceRole-mkOQ3pfuzCgy",
+      "CreateDate": "2024-11-12 04:23:22+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eksctl-test-cluster-cluster-ServiceRole-JmVJQRW5uRYF",
+      "RoleId": "AROA6IY35VFGZ67GK2ANN",
+      "Arn": "arn:aws:iam::980921723213:role/eksctl-test-cluster-cluster-ServiceRole-JmVJQRW5uRYF",
+      "CreateDate": "2024-11-12 03:54:45+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "eksctl-test-cluster-nodegroup-linu-NodeInstanceRole-9dINcmmzLjeG",
+      "RoleId": "AROA6IY35VFG5NCRBYMLF",
+      "Arn": "arn:aws:iam::980921723213:role/eksctl-test-cluster-nodegroup-linu-NodeInstanceRole-9dINcmmzLjeG",
+      "CreateDate": "2024-11-12 04:07:58+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "ec2.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "Description": "",
+      "MaxSessionDuration": 3600
+    },
+    {
+      "Path": "/",
+      "RoleName": "mvp-eks-cluster-role",
+      "RoleId": "AROA6IY35VFG6R5SGM2AD",
+      "Arn": "arn:aws:iam::980921723213:role/mvp-eks-cluster-role",
+      "CreateDate": "2024-11-13 22:52:35+00:00",
+      "AssumeRolePolicyDocument": {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Service": "eks.amazonaws.com"
+            },
+            "Action": "sts:AssumeRole"
+          }
+        ]
+      },
+      "MaxSessionDuration": 3600
+    }
+  ],
+  "Policies": []
+}
