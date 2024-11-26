@@ -1,0 +1,38 @@
+{
+  "ResponseMetadata": {
+    "RequestId": "5F9N68MKG4K464PV",
+    "HostId": "sHozbWF3usw3wo4AvvepZx6Lm4Ktp4b+dT3V1g3uNg2ifknjszfYHrRWz06Bw1LuV7zOeV7QFiQ=",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "x-amz-id-2": "sHozbWF3usw3wo4AvvepZx6Lm4Ktp4b+dT3V1g3uNg2ifknjszfYHrRWz06Bw1LuV7zOeV7QFiQ=",
+      "x-amz-request-id": "5F9N68MKG4K464PV",
+      "date": "Mon, 25 Nov 2024 00:27:09 GMT",
+      "content-type": "application/xml",
+      "transfer-encoding": "chunked",
+      "server": "AmazonS3"
+    },
+    "RetryAttempts": 0
+  },
+  "Buckets": [
+    {
+      "Name": "sritans-bucket",
+      "CreationDate": "2024-11-24 04:30:21+00:00"
+    },
+    {
+      "Name": "sritans-bucket-2024",
+      "CreationDate": "2024-11-24 06:44:11+00:00"
+    },
+    {
+      "Name": "sritans-bucket-logs",
+      "CreationDate": "2024-11-24 18:05:50+00:00"
+    },
+    {
+      "Name": "test-yja-org-dev-serverlessdeploymentbucket-w4j7wfhqhl1a",
+      "CreationDate": "2024-11-24 05:55:55+00:00"
+    }
+  ],
+  "Owner": {
+    "DisplayName": "team",
+    "ID": "72b535379382e38da8ebc965451b8cac97e672b2a2d0b6d70737c18938b78ef8"
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "Vpcs": [
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0f77e434162dbcdd7",
+          "CidrBlock": "192.168.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "aws:cloudformation:logical-id",
+          "Value": "VPC"
+        },
+        {
+          "Key": "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
+          "Value": "my-test-cluster"
+        },
+        {
+          "Key": "aws:cloudformation:stack-id",
+          "Value": "arn:aws:cloudformation:us-west-2:980921723213:stack/eksctl-my-test-cluster-cluster/6c12b880-a0ac-11ef-9d66-0a9e6ce9bd8f"
+        },
+        {
+          "Key": "alpha.eksctl.io/eksctl-version",
+          "Value": "0.194.0-dev+02ef28ee3.2024-10-22T19:53:56Z"
+        },
+        {
+          "Key": "Name",
+          "Value": "eksctl-my-test-cluster-cluster/VPC"
+        },
+        {
+          "Key": "aws:cloudformation:stack-name",
+          "Value": "eksctl-my-test-cluster-cluster"
+        },
+        {
+          "Key": "alpha.eksctl.io/cluster-oidc-enabled",
+          "Value": "false"
+        },
+        {
+          "Key": "alpha.eksctl.io/cluster-name",
+          "Value": "my-test-cluster"
+        }
+      ],
+      "VpcId": "vpc-044baa860e5400849",
+      "State": "available",
+      "CidrBlock": "192.168.0.0/16",
+      "DhcpOptionsId": "dopt-07cb78f11173dd903"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-08e25f16353123e94",
+          "CidrBlock": "172.31.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": true,
+      "VpcId": "vpc-0361dd2112ed0bab7",
+      "State": "available",
+      "CidrBlock": "172.31.0.0/16",
+      "DhcpOptionsId": "dopt-07cb78f11173dd903"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0712c275853341907",
+          "CidrBlock": "192.168.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "aws:cloudformation:logical-id",
+          "Value": "VPC"
+        },
+        {
+          "Key": "Name",
+          "Value": "eksctl-my-cluster-cluster/VPC"
+        },
+        {
+          "Key": "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
+          "Value": "my-cluster"
+        },
+        {
+          "Key": "alpha.eksctl.io/cluster-oidc-enabled",
+          "Value": "false"
+        },
+        {
+          "Key": "aws:cloudformation:stack-id",
+          "Value": "arn:aws:cloudformation:us-west-2:980921723213:stack/eksctl-my-cluster-cluster/fe521a20-a0ab-11ef-bc06-06ea4b0c3367"
+        },
+        {
+          "Key": "alpha.eksctl.io/cluster-name",
+          "Value": "my-cluster"
+        },
+        {
+          "Key": "alpha.eksctl.io/eksctl-version",
+          "Value": "0.194.0-dev+02ef28ee3.2024-10-22T19:53:56Z"
+        },
+        {
+          "Key": "aws:cloudformation:stack-name",
+          "Value": "eksctl-my-cluster-cluster"
+        }
+      ],
+      "VpcId": "vpc-0004e57ab13dd5fa6",
+      "State": "available",
+      "CidrBlock": "192.168.0.0/16",
+      "DhcpOptionsId": "dopt-07cb78f11173dd903"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0368988a7f9007e28",
+          "CidrBlock": "10.0.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "Service",
+          "Value": "my-first-webapp"
+        },
+        {
+          "Key": "Environment",
+          "Value": "production"
+        },
+        {
+          "Key": "Name",
+          "Value": "main-network"
+        },
+        {
+          "Key": "Project",
+          "Value": "FirstWebApp"
+        }
+      ],
+      "VpcId": "vpc-006032c90e81cc8b6",
+      "State": "available",
+      "CidrBlock": "10.0.0.0/16",
+      "DhcpOptionsId": "dopt-07cb78f11173dd903"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0515f36493779f106",
+          "CidrBlock": "192.168.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "aws:cloudformation:stack-id",
+          "Value": "arn:aws:cloudformation:us-west-2:980921723213:stack/eksctl-test-cluster-cluster/d8eb6f40-a0a9-11ef-8d41-026794e52343"
+        },
+        {
+          "Key": "aws:cloudformation:stack-name",
+          "Value": "eksctl-test-cluster-cluster"
+        },
+        {
+          "Key": "eksctl.cluster.k8s.io/v1alpha1/cluster-name",
+          "Value": "test-cluster"
+        },
+        {
+          "Key": "Name",
+          "Value": "eksctl-test-cluster-cluster/VPC"
+        },
+        {
+          "Key": "alpha.eksctl.io/cluster-oidc-enabled",
+          "Value": "false"
+        },
+        {
+          "Key": "aws:cloudformation:logical-id",
+          "Value": "VPC"
+        },
+        {
+          "Key": "alpha.eksctl.io/cluster-name",
+          "Value": "test-cluster"
+        },
+        {
+          "Key": "alpha.eksctl.io/eksctl-version",
+          "Value": "0.194.0-dev+02ef28ee3.2024-10-22T19:53:56Z"
+        }
+      ],
+      "VpcId": "vpc-06c990f58f65237a2",
+      "State": "available",
+      "CidrBlock": "192.168.0.0/16",
+      "DhcpOptionsId": "dopt-07cb78f11173dd903"
+    }
+  ],
+  "ResponseMetadata": {
+    "RequestId": "c90967b4-f009-4116-aece-ceacb1bab798",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "x-amzn-requestid": "c90967b4-f009-4116-aece-ceacb1bab798",
+      "cache-control": "no-cache, no-store",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "vary": "accept-encoding",
+      "content-type": "text/xml;charset=UTF-8",
+      "content-length": "5829",
+      "date": "Mon, 25 Nov 2024 00:28:57 GMT",
+      "server": "AmazonEC2"
+    },
+    "RetryAttempts": 0
+  }
+}

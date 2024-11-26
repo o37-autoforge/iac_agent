@@ -1,0 +1,47 @@
+{
+  "Stacks": [
+    {
+      "StackId": "arn:aws:cloudformation:us-east-1:980921723213:stack/test-yja-org-dev/b6bbcef0-aa28-11ef-9968-0affecf8f055",
+      "StackName": "test-yja-org-dev",
+      "Description": "The AWS CloudFormation template for this Serverless application",
+      "CreationTime": "2024-11-24 05:55:31.372000+00:00",
+      "LastUpdatedTime": "2024-11-24 05:56:17.506000+00:00",
+      "RollbackConfiguration": {},
+      "StackStatus": "UPDATE_ROLLBACK_COMPLETE",
+      "DisableRollback": false,
+      "NotificationARNs": [],
+      "Capabilities": [
+        "CAPABILITY_IAM",
+        "CAPABILITY_NAMED_IAM"
+      ],
+      "Outputs": [
+        {
+          "OutputKey": "ServerlessDeploymentBucketName",
+          "OutputValue": "test-yja-org-dev-serverlessdeploymentbucket-w4j7wfhqhl1a"
+        }
+      ],
+      "Tags": [
+        {
+          "Key": "STAGE",
+          "Value": "dev"
+        }
+      ],
+      "EnableTerminationProtection": false,
+      "DriftInformation": {
+        "StackDriftStatus": "NOT_CHECKED"
+      }
+    }
+  ],
+  "ResponseMetadata": {
+    "RequestId": "823520fa-532c-409a-a698-b7cf3a2ca5bd",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "x-amzn-requestid": "823520fa-532c-409a-a698-b7cf3a2ca5bd",
+      "date": "Mon, 25 Nov 2024 00:28:50 GMT",
+      "content-type": "text/xml",
+      "content-length": "1599",
+      "connection": "keep-alive"
+    },
+    "RetryAttempts": 0
+  }
+}

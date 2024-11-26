@@ -1,0 +1,133 @@
+{
+  "Vpcs": [
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0f8f8e3561736db62",
+          "CidrBlock": "10.0.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "my-eks-cluster-vpc"
+        }
+      ],
+      "VpcId": "vpc-025a950b7bf23450e",
+      "State": "available",
+      "CidrBlock": "10.0.0.0/16",
+      "DhcpOptionsId": "dopt-03af7d4d985cf8eb7"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0264a0ea36a5d1243",
+          "CidrBlock": "10.0.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "my-eks-cluster-vpc"
+        }
+      ],
+      "VpcId": "vpc-02fc3ba1640c7e504",
+      "State": "available",
+      "CidrBlock": "10.0.0.0/16",
+      "DhcpOptionsId": "dopt-03af7d4d985cf8eb7"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-08a581d5687634930",
+          "CidrBlock": "10.0.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "my-eks-cluster-vpc"
+        }
+      ],
+      "VpcId": "vpc-03f97b6de285527e1",
+      "State": "available",
+      "CidrBlock": "10.0.0.0/16",
+      "DhcpOptionsId": "dopt-03af7d4d985cf8eb7"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-0c7039b1092736072",
+          "CidrBlock": "172.31.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": true,
+      "VpcId": "vpc-0001bb3ba210a6838",
+      "State": "available",
+      "CidrBlock": "172.31.0.0/16",
+      "DhcpOptionsId": "dopt-03af7d4d985cf8eb7"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-051efa311048b9935",
+          "CidrBlock": "10.0.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "my-eks-cluster-vpc"
+        }
+      ],
+      "VpcId": "vpc-0fd8c0d118d8514ad",
+      "State": "available",
+      "CidrBlock": "10.0.0.0/16",
+      "DhcpOptionsId": "dopt-03af7d4d985cf8eb7"
+    }
+  ],
+  "ResponseMetadata": {
+    "RequestId": "2e2d4385-ac7a-497b-936f-be7e77285ef0",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "x-amzn-requestid": "2e2d4385-ac7a-497b-936f-be7e77285ef0",
+      "cache-control": "no-cache, no-store",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "vary": "accept-encoding",
+      "content-type": "text/xml;charset=UTF-8",
+      "content-length": "3459",
+      "date": "Mon, 25 Nov 2024 00:28:56 GMT",
+      "server": "AmazonEC2"
+    },
+    "RetryAttempts": 0
+  }
+}

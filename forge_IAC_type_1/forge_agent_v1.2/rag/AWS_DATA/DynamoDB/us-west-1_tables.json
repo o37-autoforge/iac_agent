@@ -1,0 +1,20 @@
+{
+  "TableNames": [
+    "MyDynamoDBTable",
+    "MyDynamoDBTable2024"
+  ],
+  "ResponseMetadata": {
+    "RequestId": "G0LFQG55GEEJB2OKPBLHNKPBV3VV4KQNSO5AEMVJF66Q9ASUAAJG",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "server": "Server",
+      "date": "Mon, 25 Nov 2024 00:28:40 GMT",
+      "content-type": "application/x-amz-json-1.0",
+      "content-length": "56",
+      "connection": "keep-alive",
+      "x-amzn-requestid": "G0LFQG55GEEJB2OKPBLHNKPBV3VV4KQNSO5AEMVJF66Q9ASUAAJG",
+      "x-amz-crc32": "1567250776"
+    },
+    "RetryAttempts": 0
+  }
+}

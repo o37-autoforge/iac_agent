@@ -1,0 +1,72 @@
+{
+  "Vpcs": [
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-00664b003bb5cfead",
+          "CidrBlock": "172.31.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": true,
+      "VpcId": "vpc-0d1c6c55fc7b07453",
+      "State": "available",
+      "CidrBlock": "172.31.0.0/16",
+      "DhcpOptionsId": "dopt-0fd06ab330c5ab558"
+    },
+    {
+      "OwnerId": "980921723213",
+      "InstanceTenancy": "default",
+      "CidrBlockAssociationSet": [
+        {
+          "AssociationId": "vpc-cidr-assoc-004c2df73064c477d",
+          "CidrBlock": "10.0.0.0/16",
+          "CidrBlockState": {
+            "State": "associated"
+          }
+        }
+      ],
+      "IsDefault": false,
+      "Tags": [
+        {
+          "Key": "Project",
+          "Value": "FirstWebApp"
+        },
+        {
+          "Key": "Environment",
+          "Value": "production"
+        },
+        {
+          "Key": "Service",
+          "Value": "my-first-webapp"
+        },
+        {
+          "Key": "Name",
+          "Value": "main-network"
+        }
+      ],
+      "VpcId": "vpc-0d7e160d78107bcf5",
+      "State": "available",
+      "CidrBlock": "10.0.0.0/16",
+      "DhcpOptionsId": "dopt-0fd06ab330c5ab558"
+    }
+  ],
+  "ResponseMetadata": {
+    "RequestId": "7a504a2c-a93f-489f-8a99-4f895ae8a97d",
+    "HTTPStatusCode": 200,
+    "HTTPHeaders": {
+      "x-amzn-requestid": "7a504a2c-a93f-489f-8a99-4f895ae8a97d",
+      "cache-control": "no-cache, no-store",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "content-type": "text/xml;charset=UTF-8",
+      "content-length": "1636",
+      "date": "Mon, 25 Nov 2024 00:28:55 GMT",
+      "server": "AmazonEC2"
+    },
+    "RetryAttempts": 0
+  }
+}

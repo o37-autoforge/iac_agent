@@ -3,35 +3,38 @@ import git
 from pathlib import Path
 from .env_loader import load_env_variables
 
-def clone_repository(repo_path: str = "./cloned_repo"):
+from dotenv import load_dotenv
+
+load_dotenv()
+
+def clone_repository(state):
     """
-    Clone the repository to the agent's local machine.
-
-    Args:
-        repo_path (str): The local path where the repository will be cloned.
+    Clone or update a repository from a given URL to a specified path.
     """
-
-    env_vars = load_env_variables()
-    repo_url = env_vars["github_link"]
-    token = env_vars["oauth_token"]
-    branch_name = env_vars["branch_name"]
-
-    # Construct the authenticated URL
-    if token:
-        repo_url = repo_url.replace("https://", f"https://{token}@")
-
-    # Clone the repository
-    if not os.path.exists(repo_path):
-        print(f"Cloning repository from {repo_url} to {repo_path}...")
-        git.Repo.clone_from(repo_url, repo_path, branch=branch_name)
-        print("Repository cloned successfully!")
+    repo_url = os.environ.get("REPO_URL")
+    repo_path = os.environ.get("REPO_PATH")
+    branch_name = os.environ.get("BRANCH_NAME")
+    print(f"Repo path: {repo_path}")
+    if os.path.exists(repo_path):
+        try:
+            # If the repository already exists, perform a pull
+            repo = git.Repo(repo_path)
+            origin = repo.remotes.origin
+            origin.pull(branch_name)
+        except Exception as e:
+            raise RuntimeError(f"Failed to pull latest changes: {e}")
     else:
-        print(f"Repository already exists at {repo_path}. Skipping cloning.")
+        try:
+            # If the repository does not exist, clone it
+            repo = git.Repo.clone_from(repo_url, repo_path, branch=branch_name)
+        except git.exc.GitCommandError as e:
+            raise RuntimeError(f"Failed to clone repository: {e}")
 
-    print(f"Cloned repository to {repo_path}")
-    return repo_path
+    state["repo_path"] = repo_path
 
-def create_combined_txt(repo_path: str, output_dir: str = "./rag/database"):
+    return state
+
+def create_combined_txt(state):
     """
     Load all files from the cloned repository and write their content into a single text file.
 
@@ -39,7 +42,12 @@ def create_combined_txt(repo_path: str, output_dir: str = "./rag/database"):
         repo_path (str): The local path of the cloned repository.
         output_dir (str): The directory where the combined `.txt` file will be saved.
     """
+    rag_path = os.environ.get("RAG_DATABASE_PATH")
+    repo_path = os.environ.get("REPO_PATH")
+
+    output_dir: str = rag_path
     output_path = Path(output_dir) / "cb_combined.txt"
+    state["combined_file_path"] = output_path
     combined_content = []
     repo_path = Path(repo_path)
 
@@ -59,4 +67,4 @@ def create_combined_txt(repo_path: str, output_dir: str = "./rag/database"):
     with open(output_path, "w", encoding="utf-8") as output_file:
         output_file.writelines(combined_content)
 
-    print(f"Combined file created at {output_path}")
+    return state
