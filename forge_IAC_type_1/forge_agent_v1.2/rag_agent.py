@@ -6,7 +6,7 @@ import google.generativeai as genai
 
 # Initialize LLMs
 openai_llm = ChatOpenAI(model="gpt-4o", temperature=0, openai_api_key=os.getenv("OPENAI_API_KEY"))
-genai_api_key = os.getenv("GENAI_API_KEY")
+genai_api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=genai_api_key)
 gemini_llm = genai.GenerativeModel(model_name="gemini-1.5-pro")
 

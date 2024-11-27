@@ -509,7 +509,7 @@ import os
 
 # Initialize the LLM (you can configure this globally if needed)
 openai_llm = ChatOpenAI(model="gpt-4o", temperature=0, openai_api_key=os.getenv("OPENAI_API_KEY"))
-genai_api_key = os.getenv("GENAI_API_KEY")
+genai_api_key = os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=genai_api_key)
 gemini_llm = genai.GenerativeModel(model_name="gemini-1.5-pro")
 
@@ -576,7 +576,7 @@ def generate_codebase_overview(combined_file_path: str) -> str:
     {files}
     """
     
-    overview = gemini_llm.generate_content(prompt)
+    overview = gemini_llm.generate_content(prompt).text
 
     return overview.strip()
 

@@ -19,6 +19,7 @@ llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages] # Use dict if not using BaseMessage instances
+    query: str
     repo_path: str
     combined_file_path: str
     aws_identity: str
@@ -90,7 +91,7 @@ def create_codebase_overview(state: AgentState) -> None:
     state["messages"].append({"role": "system", "content": "Generated a natural language overview of the codebase."})
     return state
 
-def make_edit_decision(state: AgentState, query: str) -> None:
+def make_edit_decision(state: AgentState) -> None:
     """
     Decide whether the codebase needs editing to execute the query.
     """
@@ -110,18 +111,18 @@ def make_edit_decision(state: AgentState, query: str) -> None:
     state["messages"].append({"role": "system", "content": f"Edit decision: {state['edit_code_decision']}."})
     return state
 
-
-def identify_files_to_edit(state: AgentState, query: str) -> None:
+def identify_files_to_edit(state: AgentState) -> None:
     """
     Identify the files that need editing to implement the query.
     """
     file_descriptions = state["file_descriptions"]
-    files_to_edit = choose_relevant_IaC_files(file_descriptions, query)
+    print(file_descriptions)
+    files_to_edit = choose_relevant_IaC_files(file_descriptions, state["query"])
     state["files_to_edit"] = files_to_edit
     state["messages"].append({"role": "system", "content": f"Files to edit: {state['files_to_edit']}."})
     return state
 
-def plan_implementation(state: AgentState, query: str) -> None:
+def plan_implementation(state: AgentState) -> None:
     """
     Create a step-by-step implementation plan for the query.
     """
@@ -130,7 +131,7 @@ def plan_implementation(state: AgentState, query: str) -> None:
     You are an expert in Infrastructure as Code (IaC). Given the following file contents and the query, 
     create an ultra-specific, step-by-step plan to implement the query.
 
-    Query: {query}
+    Query: {state["query"]}
 
     File Contents:
     {relevant_file_contents}
@@ -179,6 +180,7 @@ if __name__ == "__main__":
 
     initial_state = AgentState({
         "messages": [],
+        "query": "Add a new EC2 instance configuration to the Terraform codebase.",
         "repo_path": "",
         "combined_file_path": "",
         "aws_identity": "",
