@@ -19,7 +19,7 @@ class RelevantFilesSchema(BaseModel):
         description="List of relative file paths that are relevant to the query."
     )
 
-def choose_relevant_IaC_files(file_descriptions: str, query: str) -> RelevantFilesSchema:
+def choose_relevant_IaC_files(file_descriptions: str, query: str, file_tree: str) -> RelevantFilesSchema:
     """
     Analyzes IaC file descriptions and determines relevant files for a specific query. 
 
@@ -34,9 +34,15 @@ def choose_relevant_IaC_files(file_descriptions: str, query: str) -> RelevantFil
     model_with_structure = openai_llm.with_structured_output(RelevantFilesSchema)
 
     prompt = f"""
-    You are an expert in Infrastructure as Code (IaC). Analyze the following file descriptions and their relative paths 
-    to identify the files that might need to be referred to or edited to implement or address the query:
+    You are an expert in Infrastructure as Code (IaC). 
+    
+    Analyze the following file descriptions and their relative paths 
+    and identify the files that might need to be referred to or edited to implement or address the query:
+    Output the files that should be edited, or should be created. Only output new files to be created if the file does not exist, or if it makes sense with the current codebase structure. For example, create a new module if needed. 
 
+    Current File Tree:
+    {file_tree}
+    
     Query: {query}
 
     File Descriptions:
@@ -44,7 +50,7 @@ def choose_relevant_IaC_files(file_descriptions: str, query: str) -> RelevantFil
     """
 
     structured_output = model_with_structure.invoke(prompt)
-    return structured_output
+    return structured_output.relevant_files
 
 def choose_relevant_aws_files(aws_file_tree: str, query: str) -> RelevantFilesSchema:
     """

@@ -4,15 +4,15 @@
     "MyDynamoDBTable2024"
   ],
   "ResponseMetadata": {
-    "RequestId": "NH2R8M4KP2M5GM31V0QT1PV47BVV4KQNSO5AEMVJF66Q9ASUAAJG",
+    "RequestId": "GVG1LUU3RVMH3PGFM0KU7388S7VV4KQNSO5AEMVJF66Q9ASUAAJG",
     "HTTPStatusCode": 200,
     "HTTPHeaders": {
       "server": "Server",
-      "date": "Wed, 27 Nov 2024 06:47:12 GMT",
+      "date": "Thu, 28 Nov 2024 18:51:35 GMT",
       "content-type": "application/x-amz-json-1.0",
       "content-length": "56",
       "connection": "keep-alive",
-      "x-amzn-requestid": "NH2R8M4KP2M5GM31V0QT1PV47BVV4KQNSO5AEMVJF66Q9ASUAAJG",
+      "x-amzn-requestid": "GVG1LUU3RVMH3PGFM0KU7388S7VV4KQNSO5AEMVJF66Q9ASUAAJG",
       "x-amz-crc32": "1567250776"
     },
     "RetryAttempts": 0

@@ -571,7 +571,8 @@ def generate_codebase_overview(combined_file_path: str) -> str:
         files = f.read()
 
     prompt = f"""
-    Provide a natural language overview of the following codebase based on its file descriptions include a breakdown of the file types and their purpose, the file tree, and a conerete overview of the codebase itself and its purpose. 
+    Provide a natural language overview of the following codebase based on its file descriptions include 
+    a breakdown of the file types and their purpose, the file tree, and a conerete overview of the codebase itself and its purpose. 
     
     {files}
     """
