@@ -35,6 +35,10 @@ class AgentState(TypedDict):
     edit_code_decision: str
     files_to_edit: list[str]
     implementation_plan: str
+    execute_commands: str
+    aws_info_query: str
+    info_retrieval_query: str
+    retrieve_info: str
 
 # Define structured output schemas
 class EditCodeDecisionSchema(BaseModel):
@@ -48,12 +52,21 @@ class CommandExecutionSchema(BaseModel):
 
 def determine_command_execution(state: AgentState) -> dict:
     """
-    Determine if commands need to be executed.
+    Determine if we nede to retrieve information from AWS.
+
     """
+    relevant_file_contents = "\n".join([open(state["repo_path"] + "/" + f, "r").read() for f in state["files_to_edit"]])
+
     prompt = f"""
-    You are an expert in Infrastructure as Code (IaC). Analyze the query to determine if commands need to be executed.
+    You are an expert in Infrastructure as Code (IaC). 
+    
+    Given the query and relevant and the current codebase contents, determine if we need to retrieve any information from AWS. Output either 'yes' or 'no'.
 
     Query: {state["query"]}
+
+    Codebase Contents:
+    {relevant_file_contents}
+
     """
     model_with_structure = llm.with_structured_output(CommandExecutionSchema)
     structured_output = model_with_structure.invoke(prompt)
@@ -69,10 +82,17 @@ def retrieve_aws_info(state: AgentState) -> dict:
     """
     Create a query to retrieve information from AWS if needed.
     """
+    relevant_file_contents = "\n".join([open(state["repo_path"] + "/" + f, "r").read() for f in state["files_to_edit"]])
+
     prompt = f"""
-    You are an expert in AWS. Based on the query, create a query to retrieve necessary information from AWS.
+    You are an expert in Infrastructure as Code (IaC) and are trying to implement the following query: {state["query"]}. You have the
+    ability to retrieve information from AWS. Determine the query needed to retrieve the necessary information from AWS, and output it.
 
     Query: {state["query"]}
+
+    Codebase Contents:
+    {relevant_file_contents}
+
     """
     model_with_structure = llm.with_structured_output(AWSInfoQuerySchema)
     structured_output = model_with_structure.invoke(prompt)
@@ -81,7 +101,6 @@ def retrieve_aws_info(state: AgentState) -> dict:
 
     return state
 
-# Step 2: Define Functions
 def initialize_repo_and_aws(state: AgentState) -> dict:
     """
     Sequentially clone the repository and configure AWS.
@@ -99,10 +118,18 @@ def retrieve_codebase_info(state: AgentState) -> None:
     """
     Create a query to retrieve specific information from the codebase if needed.
     """
+    relevant_file_contents = "\n".join([open(state["repo_path"] + "/" + f, "r").read() for f in state["files_to_edit"]])
+
     prompt = f"""
-    You are an expert in Infrastructure as Code (IaC). Based on the query, create a query to retrieve necessary information from the codebase.
+    You are an expert in Infrastructure as Code (IaC). You have the ability to retrieve information from the codebase in natural language. 
+     
+    Given the query, create and output another query to retrieve the necessary information from the codebase. 
 
     Query: {state["query"]}
+
+    Codebase Contents:
+    {relevant_file_contents}
+
     """
     model_with_structure = llm.with_structured_output(InfoRetrievalQuerySchema)
     structured_output = model_with_structure.invoke(prompt)
@@ -110,7 +137,6 @@ def retrieve_codebase_info(state: AgentState) -> None:
     state["messages"].append({"role": "system", "content": f"Info retrieval query: {state['info_retrieval_query']}."})
     # Use the codebase rag agent to retrieve information
     # Example: retrieve_information(state["info_retrieval_query"])
-
     return state
 
 class InfoRetrievalSchema(BaseModel):
@@ -120,10 +146,19 @@ def determine_info_retrieval(state: AgentState) -> dict:
     """
     Determine if specific information needs to be retrieved from the codebase.
     """
+    relevant_file_contents = "\n".join([open(state["repo_path"] + "/" + f, "r").read() for f in state["files_to_edit"]])
+
     prompt = f"""
-    You are an expert in Infrastructure as Code (IaC). Analyze the query to determine if specific information needs to be retrieved from the codebase.
+    You are an expert in Infrastructure as Code (IaC).
+     
+    Given the query, and the current codebase contents, determine if we need to retrieve any specific information from the codebase. Output either 'yes' or 'no'.
 
     Query: {state["query"]}
+
+    Codebase Contents:
+    {relevant_file_contents}
+
+
     """
     model_with_structure = llm.with_structured_output(InfoRetrievalSchema)
     structured_output = model_with_structure.invoke(prompt)
@@ -178,22 +213,23 @@ def create_codebase_overview(state: AgentState) -> dict:
     return state
 
 def make_edit_decision(state: AgentState) -> dict:
-    """
-    Decide whether the codebase needs editing to execute the query.
-    """
-    file_descriptions = state["file_descriptions"]
-    prompt = f"""
-    You are an expert in Infrastructure as Code (IaC). Analyze the following file descriptions and the query 
-    to determine if the codebase needs editing.
+    # """
+    # Decide whether the codebase needs editing to execute the query.
+    # """
+    # file_descriptions = state["file_descriptions"]
+    # prompt = f"""
+    # You are an expert in Infrastructure as Code (IaC).
 
-    Query: {state["query"]}
+    # We are trying to implement the following query: {state["query"]}
 
-    File Descriptions:
-    {file_descriptions}
-    """
-    model_with_structure = llm.with_structured_output(EditCodeDecisionSchema)
-    structured_output = model_with_structure.invoke(prompt)
-    state["edit_code_decision"] = structured_output.decision
+
+    # File Descriptions:
+    # {file_descriptions}
+
+    # """
+    # model_with_structure = llm.with_structured_output(EditCodeDecisionSchema)
+    # structured_output = model_with_structure.invoke(prompt)
+    state["edit_code_decision"] = "yes"
     state["messages"].append({"role": "system", "content": f"Edit decision: {state['edit_code_decision']}."})
     
     # Return the updated state
@@ -256,7 +292,7 @@ def plan_implementation(state: AgentState) -> dict:
     return state
 
 
-async def start_forge_process(state: AgentState):
+def start_forge_process(state: AgentState):
     """
     Start the forge process with relevant files.
     """
@@ -264,7 +300,7 @@ async def start_forge_process(state: AgentState):
         relevant_files = [Path(state["repo_path"]) / f for f in state["files_to_edit"]]
         subprocess_handler.start_forge(os.getenv("OPENAI_API_KEY"), relevant_files)
 
-async def get_user_query(state: AgentState):
+def get_user_query(state: AgentState):
     """
     Capture the user's query via CLI.
     """
@@ -277,7 +313,6 @@ def create_workflow_agent():
 
     # Add nodes for each step
     workflow.add_node("initialize_repo_and_aws", initialize_repo_and_aws)
-    
     workflow.add_node("combine_files", combine_files)
     workflow.add_node("generate_file_tree", generate_file_tree)
     workflow.add_node("create_aws_data_tree", create_aws_data_tree)
@@ -308,36 +343,32 @@ def create_workflow_agent():
 
     # Conditional edge for edit decision
     workflow.add_conditional_edges("make_edit_decision", lambda state: state["edit_code_decision"], {
-        "edit_code": "identify_files_to_edit",
-        "skip_edit": "determine_command_execution"
+        "yes": "identify_files_to_edit",
+        "no": END
     })
 
-    workflow.add_edge("identify_files_to_edit", "plan_implementation")
+    workflow.add_edge("identify_files_to_edit", "determine_command_execution")
 
     # Conditional edges for command execution
     workflow.add_conditional_edges("determine_command_execution", lambda state: state["execute_commands"], {
-        "execute_commands": "retrieve_aws_info",
-        "skip_commands": "determine_info_retrieval"
+        "yes": "retrieve_aws_info",
+        "no": "determine_info_retrieval"
     })
 
     # Conditional edges for information retrieval
     workflow.add_conditional_edges("determine_info_retrieval", lambda state: state["retrieve_info"], {
-        "retrieve_info": "retrieve_codebase_info",
-        "skip_info": "plan_implementation"
+        "yes": "retrieve_codebase_info",
+        "no": "plan_implementation"
     })
 
     workflow.add_edge("retrieve_aws_info", "determine_info_retrieval")
     workflow.add_edge("retrieve_codebase_info", "plan_implementation")
     workflow.add_edge("plan_implementation", END)
 
-    # Add task to start forge with relevant files after planning
-    workflow.add_task_after("plan_implementation", start_forge_process)
-
     return workflow.compile()
 
 def start_setup():
     app = create_workflow_agent()
-
     initial_state = AgentState({
         "messages": [],
         "query": "",
@@ -349,10 +380,18 @@ def start_setup():
         "edit_code_decision": "",
         "files_to_edit": [],
         "implementation_plan": "",
-        "file_tree": str
+        "file_tree": str,
+        "execute_commands": "",
+        "aws_info_query": "",
+        "info_retrieval_query": "",
+        "retrieve_info": ""
     })
-
     for event in app.stream(initial_state):
-        event
+        print(event)
 
     return initial_state, subprocess_handler, forge_interface
+
+if __name__ == "__main__":
+    start_setup()
+
+    

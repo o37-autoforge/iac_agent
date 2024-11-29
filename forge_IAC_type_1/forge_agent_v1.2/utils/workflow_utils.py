@@ -7,6 +7,11 @@ import concurrent.futures
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 load_dotenv()
+import sys
+
+
+# old_stdout = sys.stdout
+# sys.stdout = open(os.devnull, "w")
 
 def execute_parallel_tasks(tasks, state):
     """
