@@ -14,6 +14,7 @@ from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 import asyncio
 from pathlib import Path
+import json
 
 # Setup logging
 # logging.basicConfig(level=logging.CRITICAL)
@@ -39,8 +40,20 @@ class AgentState(TypedDict):
     aws_info_query: str
     info_retrieval_query: str
     retrieve_info: str
+    memory: dict
 
-# Define structured output schemas
+class UserQuestion(BaseModel):
+    question: str = Field(..., description="The question to ask the user.")
+    context: str = Field(..., description="Context to help the user understand the question.")
+    default: str = Field(..., description="A reasonable default answer.")
+
+class GeneratedQuestionsSchema(BaseModel):
+    questions: List[UserQuestion]
+
+class UserResponse(BaseModel):
+    question: UserQuestion
+    response: str = Field(..., description="The user's response to the question.")
+
 class EditCodeDecisionSchema(BaseModel):
     decision: str = Field(description="A 'yes' or 'no' answer to whether the codebase needs editing to execute the query.")
 
@@ -49,6 +62,80 @@ class ImplementationPlanSchema(BaseModel):
 
 class CommandExecutionSchema(BaseModel):
     execute_commands: str = Field(description="A 'yes' or 'no' answer to whether commands need to be executed.")
+
+def generate_user_questions(state: AgentState) -> dict:
+    prompt = f"""
+        You are an expert in Infrastructure as Code (IaC) acting as a copilot. Your job is to generate specific questions that need to be answered by the user before implementing their request.
+
+        User's Query: {state["query"]}
+
+        Based on the specific query, generate questions that will help clarify any ambiguities or gather necessary details to proceed.
+
+        **Output Format:**
+
+        Return a JSON object with a single key `"questions"`, which is a list of question objects. Each question object should have the following keys:
+        - `question`: The specific question to ask.
+        - `context`: Important context that helps the user understand why this question matters.
+        - `default`: A reasonable default answer as a string (use JSON-formatted strings for complex values).
+
+        Generate as many questions as needed, but focus on the most critical information needed. Do not include questions that are not related to the query. Do not over do it. 
+
+        **Example Output:**
+
+        ```json
+        {{
+            "questions": [
+                {{
+                    "question": "Which cloud provider should the infrastructure be deployed to?",
+                    "context": "Different cloud providers have specific configurations and services.",
+                    "default": "AWS"
+                }},
+                {{
+                    "question": "Do you have any naming conventions for resources?",
+                    "context": "Consistent naming helps in resource management and identification.",
+                    "default": "project-name-resource-type"
+                }}
+            ]
+        }} """
+    
+    model_with_structure = llm.with_structured_output(GeneratedQuestionsSchema) 
+    structured_output = model_with_structure.invoke(prompt) 
+
+    responses = []
+    print("\nPlease answer the following questions to help me understand your requirements:")
+
+    for i, question in enumerate(structured_output.questions, 1):
+        print(f"\nQuestion {i}: {question.question}")
+        print(f"Context: {question.context}")
+        print(f"Default answer: {question.default}")
+
+        while True:
+            response = input("\nYour answer (press Enter to use default): ").strip()
+            if not response:
+                response = question.default
+                print(f"Using default answer: {response}")
+
+            confirm = input("Confirm this answer? (y/n): ").lower()
+            if confirm == 'y':
+                break
+            print("Let's try again...")
+
+        responses.append(UserResponse(question=question, response=response))
+
+    responses = [resp.model_dump() for resp in responses]
+
+    responses = [
+            {
+                "question": resp['question']['question'],
+                "response": resp['response']
+            } for resp in responses
+        ]
+    
+    responses = json.dumps(responses, indent=2)
+
+
+    state["user_questions"] = responses
+    return state
 
 def determine_command_execution(state: AgentState) -> dict:
     """
@@ -135,8 +222,6 @@ def retrieve_codebase_info(state: AgentState) -> None:
     structured_output = model_with_structure.invoke(prompt)
     state["info_retrieval_query"] = structured_output.info_retrieval_query
     state["messages"].append({"role": "system", "content": f"Info retrieval query: {state['info_retrieval_query']}."})
-    # Use the codebase rag agent to retrieve information
-    # Example: retrieve_information(state["info_retrieval_query"])
     return state
 
 class InfoRetrievalSchema(BaseModel):
@@ -188,8 +273,6 @@ def create_aws_data_tree(state: AgentState) -> dict:
     state["messages"].append({"role": "system", "content": "AWS Raggable data tree created."})
 
     return state 
-
-# Step 3: Define LangGraph Workflow
 
 def describe_files(state: AgentState) -> dict:
     """
@@ -275,7 +358,7 @@ def plan_implementation(state: AgentState) -> dict:
     You are an expert in Infrastructure as Code (IaC). Given the following file contents and the query, 
     create an ultra-specific, step-by-step plan to implement the query. Make sure you reference the file tree, 
     and the file names to create the plan. Furthemrore, ensure that your implementation plan is specific to the codebase, and keeps the 
-    overall codebase structure in mind. 
+    overall codebase structure in mind. Fiinally, also take into account the user's responses to the questions that were created earlier. 
 
     Query: {state["query"]}
 
@@ -284,6 +367,9 @@ def plan_implementation(state: AgentState) -> dict:
 
     File Tree:
     {state["file_tree"]}
+
+    User Questions:
+    {state["user_questions"]}
     """
     model_with_structure = llm.with_structured_output(ImplementationPlanSchema)
     structured_output = model_with_structure.invoke(prompt)
@@ -384,7 +470,10 @@ def start_setup():
         "execute_commands": "",
         "aws_info_query": "",
         "info_retrieval_query": "",
-        "retrieve_info": ""
+        "retrieve_info": "",
+        "memory": dict,
+        "user_questions": []
+
     })
     for event in app.stream(initial_state):
         print(event)

@@ -167,6 +167,7 @@ class forgeAgent:
 
 
     def find_tool_directory(self, tool_name: str) -> Optional[Path]:
+        
         tool_file_patterns = {
             'terraform': ['*.tf', '*.tfvars', '*.hcl'],
             'ansible': ['*.yaml', '*.yml'],
@@ -174,6 +175,7 @@ class forgeAgent:
             'chef': ['*.rb'],
             'docker': ['Dockerfile', 'docker-compose.yml', 'docker-compose.yaml'],
         }
+
         patterns = tool_file_patterns.get(tool_name.lower(), [])
         if not patterns:
             logger.warning(f"No file patterns defined for tool '{tool_name}'")

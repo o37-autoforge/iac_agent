@@ -22,7 +22,7 @@ store = InMemoryStore()
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
-llm = ChatOpenAI(model="gpt-4", temperature=0)
+llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 # Ensure that the forge_interface is properly imported or defined
 from utils.subprocess_handler import SubprocessHandler
@@ -37,10 +37,10 @@ forge_interface = ForgeInterface(subprocess_handler)
 
 # Update the AgentState if needed
 class CodeState(AgentState):
-    # Add any additional fields if needed
-    detected_issues: Optional[Union[List[str], str]]
-    iteration_count: int
-    max_iterations: int
+    detected_issues: Optional[Union[List[str], str]] = None
+    iteration_count: int = 0
+    max_iterations: int = 5
+    memory: dict = {}
 
 # Define the code executor function
 def code_executor(state: CodeState, forge_interface: ForgeInterface) -> dict:
@@ -490,25 +490,23 @@ def create_secondary_agent(forge_interface: ForgeInterface):
 def start_secondary_agent(prior_state: AgentState, forge_interface: ForgeInterface):
     app = create_secondary_agent(forge_interface)
     initial_state = CodeState(prior_state)
-    initial_state['current_query'] = initial_state['implementation_plan']
+
+    # Set default values for state variables
+    initial_state['current_query'] = initial_state.get('implementation_plan', '')
     initial_state['iteration_count'] = 0
     initial_state['max_iterations'] = 5
-    if 'memory' not in initial_state:
+
+    # Ensure 'memory' is a dictionary
+    if 'memory' not in initial_state or not isinstance(initial_state['memory'], dict):
         initial_state['memory'] = {}
-    if 'code_executions' not in initial_state['memory']:
-        initial_state['memory']['code_executions'] = []
-    if 'code_reviews' not in initial_state['memory']:
-        initial_state['memory']['code_reviews'] = []
-    if 'queries' not in initial_state['memory']:
-        initial_state['memory']['queries'] = []
-    if 'aws_info' not in initial_state['memory']:
-        initial_state['memory']['aws_info'] = []
-    if 'user_responses' not in initial_state['memory']:
-        initial_state['memory']['user_responses'] = []
-    if 'decisions' not in initial_state['memory']:
-        initial_state['memory']['decisions'] = []
-    if 'experiences' not in initial_state['memory']:
-        initial_state['memory']['experiences'] = []
+
+    # Initialize memory components with default empty lists
+    memory_keys = [
+        'code_executions', 'code_reviews', 'queries', 'aws_info',
+        'user_responses', 'decisions', 'experiences'
+    ]
+    for key in memory_keys:
+        initial_state['memory'].setdefault(key, [])
 
     # Start the workflow
     for event in app.stream(initial_state):
@@ -519,32 +517,3 @@ def start_secondary_agent(prior_state: AgentState, forge_interface: ForgeInterfa
 def start_code_loop(state_from_setup: AgentState, forge_interface: ForgeInterface):
     final_state = start_secondary_agent(state_from_setup, forge_interface)
     return final_state
-
-if __name__ == "__main__":
-
-    initial_state = AgentState({
-        "messages": [],
-        "query": "Deploy a new EC2 instance with specific configurations.",
-        "repo_path": REPO_PATH,
-        "combined_file_path": os.path.join(REPO_PATH, "combined.txt"),
-        "aws_identity": "arn:aws:iam::123456789012:user/example",
-        "file_descriptions": {},
-        "codebase_overview": "",
-        "edit_code_decision": "yes",
-        "files_to_edit": ["infrastructure/main.tf"],
-        "implementation_plan": "1. Update the Terraform configuration to include a new EC2 instance.\n2. Specify the instance type, AMI, and security groups.\n3. Apply the changes using Terraform.",
-        "file_tree": "",
-        "execute_commands": "",
-        "aws_info_query": "",
-        "info_retrieval_query": "",
-        "retrieve_info": "",
-        "code_execution_output": "",
-        "code_query_decision": "",
-        "code_query_explanation": "",
-        "current_query": "",
-        "aws_info": None,
-        "user_response": None,
-        "memory": {},
-    })
-
-    final_state = start_code_loop(initial_state, forge_interface)

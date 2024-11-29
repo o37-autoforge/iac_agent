@@ -7,77 +7,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-21 09:12:48+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-04431a312c9096c13"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241121091247067600000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-54-176-208-249.us-west-1.compute.amazonaws.com",
-                "PublicIp": "54.176.208.249"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-21 09:12:47+00:00",
-                "AttachmentId": "eni-attach-0d02d71f05ba846a0",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:a5:4f:f3:84:03",
-              "NetworkInterfaceId": "eni-09fcf96f83b2ba9ed",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-1-172.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.1.172",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-54-176-208-249.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "54.176.208.249"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-1-172.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.1.172"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -96,7 +38,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -110,11 +52,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-21 09:12:47+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -122,12 +59,12 @@
           "InstanceId": "i-08fcbf00956165b0f",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-1-172.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-54-176-208-249.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -139,11 +76,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.1.172",
-          "PublicIpAddress": "54.176.208.249"
+          }
         }
       ]
     },
@@ -154,77 +87,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-22 09:05:29+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-00f6ea5398f61cc75"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241122090527746800000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-54-241-211-18.us-west-1.compute.amazonaws.com",
-                "PublicIp": "54.241.211.18"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-22 09:05:28+00:00",
-                "AttachmentId": "eni-attach-09ba7739425714407",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:3a:43:d5:58:cb",
-              "NetworkInterfaceId": "eni-07cfb538463595881",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-2-149.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.2.149",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-54-241-211-18.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "54.241.211.18"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-2-149.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.2.149"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -243,7 +118,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -257,11 +132,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-22 09:05:28+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -269,12 +139,12 @@
           "InstanceId": "i-0b6151830f2b2c107",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-2-149.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-54-241-211-18.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -286,11 +156,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.2.149",
-          "PublicIpAddress": "54.241.211.18"
+          }
         }
       ]
     },
@@ -301,77 +167,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-24 05:23:28+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-01c8128fd1ac18412"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241124052328005200000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-18-144-164-187.us-west-1.compute.amazonaws.com",
-                "PublicIp": "18.144.164.187"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-24 05:23:28+00:00",
-                "AttachmentId": "eni-attach-0d7286f671ae93197",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:77:7d:0c:82:df",
-              "NetworkInterfaceId": "eni-016e17b315310de57",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-13-85.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.13.85",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-18-144-164-187.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "18.144.164.187"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-13-85.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.13.85"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -390,7 +198,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -404,11 +212,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-24 05:23:28+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -416,12 +219,12 @@
           "InstanceId": "i-03c30c32e25d86c39",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-13-85.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-18-144-164-187.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -433,11 +236,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.13.85",
-          "PublicIpAddress": "18.144.164.187"
+          }
         }
       ]
     },
@@ -448,77 +247,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-24 04:30:21+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-0e143938d05f758c3"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241124043020391200000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-54-183-239-64.us-west-1.compute.amazonaws.com",
-                "PublicIp": "54.183.239.64"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-24 04:30:20+00:00",
-                "AttachmentId": "eni-attach-094ebd98245183aee",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:12:3e:b2:27:55",
-              "NetworkInterfaceId": "eni-0968c4c62ed4dcbd1",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-1-244.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.1.244",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-54-183-239-64.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "54.183.239.64"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-1-244.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.1.244"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -537,7 +278,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -551,11 +292,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-24 04:30:20+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -563,12 +299,12 @@
           "InstanceId": "i-0fa4a10ca2e3b07fa",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-1-244.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-54-183-239-64.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -580,11 +316,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.1.244",
-          "PublicIpAddress": "54.183.239.64"
+          }
         }
       ]
     },
@@ -595,77 +327,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-24 06:42:12+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-04aa11454e0d50d08"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241124064210764000000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-18-144-10-196.us-west-1.compute.amazonaws.com",
-                "PublicIp": "18.144.10.196"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-24 06:42:11+00:00",
-                "AttachmentId": "eni-attach-0ec6a2db9196176fb",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:8a:58:fa:36:33",
-              "NetworkInterfaceId": "eni-01fe0b892a09cf407",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-8-250.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.8.250",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-18-144-10-196.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "18.144.10.196"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-8-250.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.8.250"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -684,7 +358,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -698,11 +372,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-24 06:42:11+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -710,12 +379,12 @@
           "InstanceId": "i-01513efc620bfd72a",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-8-250.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-18-144-10-196.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -727,11 +396,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.8.250",
-          "PublicIpAddress": "18.144.10.196"
+          }
         }
       ]
     },
@@ -742,77 +407,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-24 07:51:41+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-091b9af8baef8cc47"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241124075140941600000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-13-52-213-45.us-west-1.compute.amazonaws.com",
-                "PublicIp": "13.52.213.45"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-24 07:51:41+00:00",
-                "AttachmentId": "eni-attach-0eb6eabdef14b0b37",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:3c:ee:4f:36:fb",
-              "NetworkInterfaceId": "eni-00918bb3eb55a9a5c",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-14-174.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.14.174",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-13-52-213-45.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "13.52.213.45"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-14-174.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.14.174"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -831,7 +438,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -845,11 +452,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-24 07:51:41+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -857,12 +459,12 @@
           "InstanceId": "i-07d7223710bd0acd2",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-14-174.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-13-52-213-45.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -874,11 +476,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.14.174",
-          "PublicIpAddress": "13.52.213.45"
+          }
         }
       ]
     },
@@ -889,77 +487,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-24 18:05:50+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-076c1643b06cbcf9d"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241124180551370200000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-54-215-88-58.us-west-1.compute.amazonaws.com",
-                "PublicIp": "54.215.88.58"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-24 18:05:49+00:00",
-                "AttachmentId": "eni-attach-0095a83dd989bd685",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:5f:8d:55:57:59",
-              "NetworkInterfaceId": "eni-0f634064b4378e99f",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-1-62.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.1.62",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-54-215-88-58.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "54.215.88.58"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-1-62.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.1.62"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -978,7 +518,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -992,11 +532,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-24 18:05:49+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -1004,12 +539,12 @@
           "InstanceId": "i-01154b63f0ced02f6",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-1-62.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-54-215-88-58.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -1021,11 +556,7 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.1.62",
-          "PublicIpAddress": "54.215.88.58"
+          }
         }
       ]
     },
@@ -1036,77 +567,19 @@
       "Instances": [
         {
           "Architecture": "x86_64",
-          "BlockDeviceMappings": [
-            {
-              "DeviceName": "/dev/xvda",
-              "Ebs": {
-                "AttachTime": "2024-11-24 18:20:27+00:00",
-                "DeleteOnTermination": true,
-                "Status": "attached",
-                "VolumeId": "vol-03ab637ae8c776ab8"
-              }
-            }
-          ],
+          "BlockDeviceMappings": [],
           "ClientToken": "terraform-20241124182028636400000001",
           "EbsOptimized": false,
           "EnaSupport": true,
           "Hypervisor": "xen",
-          "NetworkInterfaces": [
-            {
-              "Association": {
-                "IpOwnerId": "amazon",
-                "PublicDnsName": "ec2-54-67-52-146.us-west-1.compute.amazonaws.com",
-                "PublicIp": "54.67.52.146"
-              },
-              "Attachment": {
-                "AttachTime": "2024-11-24 18:20:27+00:00",
-                "AttachmentId": "eni-attach-02c9125f7fdf7e08d",
-                "DeleteOnTermination": true,
-                "DeviceIndex": 0,
-                "Status": "attached",
-                "NetworkCardIndex": 0
-              },
-              "Description": "",
-              "Groups": [
-                {
-                  "GroupId": "sg-0979885db8b69956b",
-                  "GroupName": "default"
-                }
-              ],
-              "Ipv6Addresses": [],
-              "MacAddress": "06:56:3e:9f:91:03",
-              "NetworkInterfaceId": "eni-0d2318b5830cbc580",
-              "OwnerId": "980921723213",
-              "PrivateDnsName": "ip-172-31-2-108.us-west-1.compute.internal",
-              "PrivateIpAddress": "172.31.2.108",
-              "PrivateIpAddresses": [
-                {
-                  "Association": {
-                    "IpOwnerId": "amazon",
-                    "PublicDnsName": "ec2-54-67-52-146.us-west-1.compute.amazonaws.com",
-                    "PublicIp": "54.67.52.146"
-                  },
-                  "Primary": true,
-                  "PrivateDnsName": "ip-172-31-2-108.us-west-1.compute.internal",
-                  "PrivateIpAddress": "172.31.2.108"
-                }
-              ],
-              "SourceDestCheck": true,
-              "Status": "in-use",
-              "SubnetId": "subnet-07c4306fe428d119d",
-              "VpcId": "vpc-0001bb3ba210a6838",
-              "InterfaceType": "interface"
-            }
-          ],
+          "NetworkInterfaces": [],
           "RootDeviceName": "/dev/xvda",
           "RootDeviceType": "ebs",
-          "SecurityGroups": [
-            {
-              "GroupId": "sg-0979885db8b69956b",
-              "GroupName": "default"
-            }
-          ],
-          "SourceDestCheck": true,
+          "SecurityGroups": [],
+          "StateReason": {
+            "Code": "Client.UserInitiatedShutdown",
+            "Message": "Client.UserInitiatedShutdown: User initiated shutdown"
+          },
           "Tags": [
             {
               "Key": "Name",
@@ -1125,7 +598,7 @@
             "Configured": false
           },
           "MetadataOptions": {
-            "State": "applied",
+            "State": "pending",
             "HttpTokens": "required",
             "HttpPutResponseHopLimit": 2,
             "HttpEndpoint": "enabled",
@@ -1139,11 +612,6 @@
           "PlatformDetails": "Linux/UNIX",
           "UsageOperation": "RunInstances",
           "UsageOperationUpdateTime": "2024-11-24 18:20:26+00:00",
-          "PrivateDnsNameOptions": {
-            "HostnameType": "ip-name",
-            "EnableResourceNameDnsARecord": false,
-            "EnableResourceNameDnsAAAARecord": false
-          },
           "MaintenanceOptions": {
             "AutoRecovery": "default"
           },
@@ -1151,12 +619,12 @@
           "InstanceId": "i-08026d2658ca75e34",
           "ImageId": "ami-05c65d8bb2e35991a",
           "State": {
-            "Code": 16,
-            "Name": "running"
+            "Code": 48,
+            "Name": "terminated"
           },
-          "PrivateDnsName": "ip-172-31-2-108.us-west-1.compute.internal",
-          "PublicDnsName": "ec2-54-67-52-146.us-west-1.compute.amazonaws.com",
-          "StateTransitionReason": "",
+          "PrivateDnsName": "",
+          "PublicDnsName": "",
+          "StateTransitionReason": "User initiated (2024-11-29 19:51:50 GMT)",
           "AmiLaunchIndex": 0,
           "ProductCodes": [],
           "InstanceType": "t2.micro",
@@ -1168,26 +636,22 @@
           },
           "Monitoring": {
             "State": "disabled"
-          },
-          "SubnetId": "subnet-07c4306fe428d119d",
-          "VpcId": "vpc-0001bb3ba210a6838",
-          "PrivateIpAddress": "172.31.2.108",
-          "PublicIpAddress": "54.67.52.146"
+          }
         }
       ]
     }
   ],
   "ResponseMetadata": {
-    "RequestId": "06dfacd6-00b2-4097-be6f-7d04fc12d272",
+    "RequestId": "ccdcf62b-5ca0-4055-8f59-31d0771814ad",
     "HTTPStatusCode": 200,
     "HTTPHeaders": {
-      "x-amzn-requestid": "06dfacd6-00b2-4097-be6f-7d04fc12d272",
+      "x-amzn-requestid": "ccdcf62b-5ca0-4055-8f59-31d0771814ad",
       "cache-control": "no-cache, no-store",
       "strict-transport-security": "max-age=31536000; includeSubDomains",
       "vary": "accept-encoding",
       "content-type": "text/xml;charset=UTF-8",
       "transfer-encoding": "chunked",
-      "date": "Thu, 28 Nov 2024 21:58:01 GMT",
+      "date": "Fri, 29 Nov 2024 20:45:17 GMT",
       "server": "AmazonEC2"
     },
     "RetryAttempts": 0
