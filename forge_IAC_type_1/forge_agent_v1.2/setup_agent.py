@@ -40,6 +40,7 @@ class AgentState(TypedDict):
     aws_info_query: str
     info_retrieval_query: str
     retrieve_info: str
+    user_questions: list[dict]
     memory: dict
 
 class UserQuestion(BaseModel):
@@ -63,7 +64,7 @@ class ImplementationPlanSchema(BaseModel):
 class CommandExecutionSchema(BaseModel):
     execute_commands: str = Field(description="A 'yes' or 'no' answer to whether commands need to be executed.")
 
-def generate_user_questions(state: AgentState) -> dict:
+def ask_user_questions(state: AgentState) -> dict:
     prompt = f"""
         You are an expert in Infrastructure as Code (IaC) acting as a copilot. Your job is to generate specific questions that need to be answered by the user before implementing their request.
 
@@ -78,7 +79,7 @@ def generate_user_questions(state: AgentState) -> dict:
         - `context`: Important context that helps the user understand why this question matters.
         - `default`: A reasonable default answer as a string (use JSON-formatted strings for complex values).
 
-        Generate as many questions as needed, but focus on the most critical information needed. Do not include questions that are not related to the query. Do not over do it. 
+        Generate as many questions as needed, but focus on the most critical information needed. Do not include questions that are not related to the query. Ensure that you collect all the information needed to implement the query. For example, if the query is to create a new AWS resource, you should ask questions about the resource type, naming conventions, etc.
 
         **Example Output:**
 
@@ -355,12 +356,14 @@ def plan_implementation(state: AgentState) -> dict:
     relevant_file_contents = "\n".join([open(state["repo_path"] + "/" + f, "r").read() for f in state["files_to_edit"]])
    
     prompt = f"""
-    You are an expert in Infrastructure as Code (IaC). Given the following file contents and the query, 
-    create an ultra-specific, step-by-step plan to implement the query. Make sure you reference the file tree, 
-    and the file names to create the plan. Furthemrore, ensure that your implementation plan is specific to the codebase, and keeps the 
-    overall codebase structure in mind. Fiinally, also take into account the user's responses to the questions that were created earlier. 
+    You are an expert developer in Infrastructure as Code (IaC). Given the following file contents and the query, 
+    create an ultra-specific, step-by-step plan to implement a query given by the user. Make sure to mention the original query at the top of the implementation plan.
+    Make sure you reference the file tree, and the file names to create the plan. Furthemrore, ensure that your implementation plan is specific to the codebase, and keeps the 
+    overall codebase structure in mind. Finally, also take into account the user's responses to the questions that were created earlier.
 
-    Query: {state["query"]}
+    This query will be given to another AI agent to implement. Therefore, make sure that your implementation plan is detailed and specific.
+
+    Initial Query From User: {state["query"]}
 
     File Contents:
     {relevant_file_contents}
@@ -368,8 +371,9 @@ def plan_implementation(state: AgentState) -> dict:
     File Tree:
     {state["file_tree"]}
 
-    User Questions:
+    User Responses to questions:
     {state["user_questions"]}
+
     """
     model_with_structure = llm.with_structured_output(ImplementationPlanSchema)
     structured_output = model_with_structure.invoke(prompt)
@@ -404,7 +408,8 @@ def create_workflow_agent():
     workflow.add_node("create_aws_data_tree", create_aws_data_tree)
     workflow.add_node("create_codebase_overview", create_codebase_overview)
     workflow.add_node("describe_files", describe_files)
-    workflow.add_node("get_user_query", get_user_query)  # Human-in-the-loop node
+    workflow.add_node("get_user_query", get_user_query)   
+    workflow.add_node("ask_user_questions", ask_user_questions)
     workflow.add_node("make_edit_decision", make_edit_decision)
     workflow.add_node("identify_files_to_edit", identify_files_to_edit)
     workflow.add_node("determine_command_execution", determine_command_execution)
@@ -423,9 +428,9 @@ def create_workflow_agent():
     workflow.add_edge("create_aws_data_tree", "create_codebase_overview")
     workflow.add_edge("create_codebase_overview", "describe_files")
     workflow.add_edge("describe_files", "get_user_query")  # Transition to user query
-
+    workflow.add_edge("get_user_query", "ask_user_questions")
     # Ensure make_edit_decision is reachable
-    workflow.add_edge("get_user_query", "make_edit_decision")
+    workflow.add_edge("ask_user_questions", "make_edit_decision")
 
     # Conditional edge for edit decision
     workflow.add_conditional_edges("make_edit_decision", lambda state: state["edit_code_decision"], {
@@ -475,12 +480,10 @@ def start_setup():
         "user_questions": []
 
     })
-    for event in app.stream(initial_state):
-        print(event)
-
-    return initial_state, subprocess_handler, forge_interface
+    
+    final_state = app.invoke(initial_state)
+    print(final_state)
+    return final_state, subprocess_handler, forge_interface
 
 if __name__ == "__main__":
     start_setup()
-
-    

@@ -555,7 +555,7 @@ def generate_file_descriptions(repo_path: str) -> dict:
                 with open(file_path, "r", encoding="utf-8") as f:
                     file_content = f.read()
                     prompt = f"Provide a natural language description of the following IaC file:\n\n{file_content}"
-                    description = openai_llm.invoke({"messages": [{"role": "user", "content": prompt}]})["content"]
+                    description = openai_llm.invoke(prompt).content.strip()
                     file_descriptions[file_path] = description.strip()
             except Exception as e:
                 print(f"Skipping file {file_path} due to error: {e}")
