@@ -74,7 +74,7 @@ class ForgeInterface:
             return False
 
         logger.info(f"Successfully completed subtask {task}")
-        return True
+        return response
 
     async def close_forge(self):
         try:

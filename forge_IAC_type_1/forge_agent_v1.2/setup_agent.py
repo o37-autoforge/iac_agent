@@ -357,21 +357,21 @@ def plan_implementation(state: AgentState) -> dict:
    
     prompt = f"""
     You are an expert developer in Infrastructure as Code (IaC). Given the following file contents and the query, 
-    create an ultra-specific, step-by-step plan to implement a query given by the user. Make sure to mention the original query at the top of the implementation plan.
+    create an ultra-specific, step-by-step plan to implement a query given by the user. Make sure to mention the original query (verbatim) at the top of the implementation plan.
     Make sure you reference the file tree, and the file names to create the plan. Furthemrore, ensure that your implementation plan is specific to the codebase, and keeps the 
     overall codebase structure in mind. Finally, also take into account the user's responses to the questions that were created earlier.
 
     This query will be given to another AI agent to implement. Therefore, make sure that your implementation plan is detailed and specific.
 
-    Initial Query From User: {state["query"]}
+    **Initial Query From User **: {state["query"]}
 
-    File Contents:
+     **File Contents **:
     {relevant_file_contents}
 
-    File Tree:
+     **File Tree **:
     {state["file_tree"]}
 
-    User Responses to questions:
+    ** User Responses to questions: **
     {state["user_questions"]}
 
     """
@@ -482,7 +482,6 @@ def start_setup():
     })
     
     final_state = app.invoke(initial_state)
-    print(final_state)
     return final_state, subprocess_handler, forge_interface
 
 if __name__ == "__main__":
