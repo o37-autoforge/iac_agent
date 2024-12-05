@@ -13,3 +13,5 @@ _site
 forge/__version__.py
 .venv/
 .env
+awsSetup/
+
