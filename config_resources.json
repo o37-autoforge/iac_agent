@@ -1,0 +1,37 @@
+{
+    "AWSAccountID": "980921723213",
+    "AggregatorRegion": "us-east-1",
+    "IAMRole": {
+        "RoleName": "AWSConfigRoleForAggregator",
+        "RoleARN": "arn:aws:iam::980921723213:role/AWSConfigRoleForAggregator"
+    },
+    "SNSTopic": {
+        "TopicName": "AWSConfigTopic-dcc2aa3d",
+        "TopicARN": "arn:aws:sns:us-east-1:980921723213:AWSConfigTopic-dcc2aa3d",
+        "Region": "us-east-1"
+    },
+    "SQSQueue": {
+        "QueueName": "AWSConfigQueue-dcc2aa3d",
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/980921723213/AWSConfigQueue-dcc2aa3d",
+        "QueueARN": "arn:aws:sqs:us-east-1:980921723213:AWSConfigQueue-dcc2aa3d",
+        "Region": "us-east-1"
+    },
+    "S3Bucket": {
+        "BucketName": "aws-config-bucket-dcc2aa3d",
+        "Region": "us-east-1"
+    },
+    "AWSConfig": {
+        "ConfigurationRecorderName": "default",
+        "DeliveryChannelName": "default",
+        "RoleARN": "arn:aws:iam::980921723213:role/AWSConfigRoleForAggregator",
+        "S3BucketName": "aws-config-bucket-dcc2aa3d",
+        "SNSTopicARN": "arn:aws:sns:us-east-1:980921723213:AWSConfigTopic-dcc2aa3d"
+    },
+    "ConfigAggregator": {
+        "AggregatorName": "AccountAggregator"
+    },
+    "DynamoDBTable": {
+        "TableName": "AWSConfigAggregatedData-dcc2aa3d",
+        "Region": "us-east-1"
+    }
+}

@@ -1,0 +1,52 @@
+2024-12-03 20:36:48,835 INFO Loaded resource information from 'config_resources.json'.
+2024-12-03 20:36:48,854 INFO Found credentials in shared credentials file: ~/.aws/credentials
+2024-12-03 20:36:49,281 INFO Retrieved 17 regions.
+2024-12-03 20:36:49,282 INFO Creating test S3 buckets in all regions...
+2024-12-03 20:36:51,056 INFO Created test S3 bucket 'validation-test-bucket-4dbb016c-b859-44f3-a8ab-6eb54ada95e8' in region 'ap-south-1'.
+2024-12-03 20:36:53,771 INFO Created test S3 bucket 'validation-test-bucket-bf3c08ca-a2ec-4239-a55c-ac29323536a2' in region 'eu-north-1'.
+2024-12-03 20:36:55,986 INFO Created test S3 bucket 'validation-test-bucket-379532fa-c27d-4d29-a011-40655ead52b4' in region 'eu-west-3'.
+2024-12-03 20:36:58,173 INFO Created test S3 bucket 'validation-test-bucket-acab0460-1e5c-4bff-8463-04127235affa' in region 'eu-west-2'.
+2024-12-03 20:37:00,311 INFO Created test S3 bucket 'validation-test-bucket-5694b21e-01a5-47c5-bfb4-8c5dee8be2f4' in region 'eu-west-1'.
+2024-12-03 20:37:02,556 INFO Created test S3 bucket 'validation-test-bucket-84001590-a1fc-486d-909d-f761d2650408' in region 'ap-northeast-3'.
+2024-12-03 20:37:05,044 INFO Created test S3 bucket 'validation-test-bucket-dd284aac-51c3-4b4c-a9ee-59fcb4225bab' in region 'ap-northeast-2'.
+2024-12-03 20:37:07,338 INFO Created test S3 bucket 'validation-test-bucket-b11b36d6-161d-4161-903b-13737d49b503' in region 'ap-northeast-1'.
+2024-12-03 20:37:09,133 INFO Created test S3 bucket 'validation-test-bucket-e124886d-795a-45ae-bfe1-b187f914bb57' in region 'ca-central-1'.
+2024-12-03 20:37:11,593 INFO Created test S3 bucket 'validation-test-bucket-687da3b4-312f-478c-85df-712619014833' in region 'sa-east-1'.
+2024-12-03 20:37:14,370 INFO Created test S3 bucket 'validation-test-bucket-e5a92809-d72e-4891-8443-6d394b144759' in region 'ap-southeast-1'.
+2024-12-03 20:37:16,930 INFO Created test S3 bucket 'validation-test-bucket-bb33bb21-5599-442e-a149-70accb6da813' in region 'ap-southeast-2'.
+2024-12-03 20:37:19,150 INFO Created test S3 bucket 'validation-test-bucket-dbe3be78-3b12-49a8-a793-a782e142953a' in region 'eu-central-1'.
+2024-12-03 20:37:20,626 INFO Created test S3 bucket 'validation-test-bucket-bea57c48-bec5-4ee4-bd67-8e99a2a80892' in region 'us-east-1'.
+2024-12-03 20:37:22,335 INFO Created test S3 bucket 'validation-test-bucket-365c5ffe-5562-46d6-8aa6-ce96eea8cb01' in region 'us-east-2'.
+2024-12-03 20:37:24,300 INFO Created test S3 bucket 'validation-test-bucket-6d05cfdf-782b-48ca-922a-8e1d212b79eb' in region 'us-west-1'.
+2024-12-03 20:37:26,129 INFO Created test S3 bucket 'validation-test-bucket-7e7ea98a-d45e-4fa4-a0aa-0578d0cdc5a4' in region 'us-west-2'.
+2024-12-03 20:37:27,137 INFO Waiting up to 300 seconds for AWS Config to process changes...
+2024-12-03 20:37:27,552 WARNING Message content is not valid JSON. Handling as plain text.
+2024-12-03 20:37:27,629 INFO Received and deleted message from SQS: Unknown
+2024-12-03 20:42:39,428 WARNING Expected 17 messages but received 1.
+2024-12-03 20:42:39,431 INFO Verifying DynamoDB entries...
+2024-12-03 20:42:40,046 INFO DynamoDB table 'AWSConfigAggregatedData-dcc2aa3d' has at least 17 entries.
+2024-12-03 20:42:40,047 INFO DynamoDB verification successful.
+2024-12-03 20:42:40,047 INFO Cleaning up test S3 buckets...
+2024-12-03 20:42:41,516 INFO Deleted test S3 bucket 'validation-test-bucket-4dbb016c-b859-44f3-a8ab-6eb54ada95e8' from region 'ap-south-1'.
+2024-12-03 20:42:43,554 INFO Deleted test S3 bucket 'validation-test-bucket-bf3c08ca-a2ec-4239-a55c-ac29323536a2' from region 'eu-north-1'.
+2024-12-03 20:42:45,512 INFO Deleted test S3 bucket 'validation-test-bucket-379532fa-c27d-4d29-a011-40655ead52b4' from region 'eu-west-3'.
+2024-12-03 20:42:47,437 INFO Deleted test S3 bucket 'validation-test-bucket-acab0460-1e5c-4bff-8463-04127235affa' from region 'eu-west-2'.
+2024-12-03 20:42:49,336 INFO Deleted test S3 bucket 'validation-test-bucket-5694b21e-01a5-47c5-bfb4-8c5dee8be2f4' from region 'eu-west-1'.
+2024-12-03 20:42:51,195 INFO Deleted test S3 bucket 'validation-test-bucket-84001590-a1fc-486d-909d-f761d2650408' from region 'ap-northeast-3'.
+2024-12-03 20:42:53,246 INFO Deleted test S3 bucket 'validation-test-bucket-dd284aac-51c3-4b4c-a9ee-59fcb4225bab' from region 'ap-northeast-2'.
+2024-12-03 20:42:55,198 INFO Deleted test S3 bucket 'validation-test-bucket-b11b36d6-161d-4161-903b-13737d49b503' from region 'ap-northeast-1'.
+2024-12-03 20:42:56,831 INFO Deleted test S3 bucket 'validation-test-bucket-e124886d-795a-45ae-bfe1-b187f914bb57' from region 'ca-central-1'.
+2024-12-03 20:42:59,114 INFO Deleted test S3 bucket 'validation-test-bucket-687da3b4-312f-478c-85df-712619014833' from region 'sa-east-1'.
+2024-12-03 20:43:01,381 INFO Deleted test S3 bucket 'validation-test-bucket-e5a92809-d72e-4891-8443-6d394b144759' from region 'ap-southeast-1'.
+2024-12-03 20:43:03,461 INFO Deleted test S3 bucket 'validation-test-bucket-bb33bb21-5599-442e-a149-70accb6da813' from region 'ap-southeast-2'.
+2024-12-03 20:43:05,438 INFO Deleted test S3 bucket 'validation-test-bucket-dbe3be78-3b12-49a8-a793-a782e142953a' from region 'eu-central-1'.
+2024-12-03 20:43:06,910 INFO Deleted test S3 bucket 'validation-test-bucket-bea57c48-bec5-4ee4-bd67-8e99a2a80892' from region 'us-east-1'.
+2024-12-03 20:43:08,423 INFO Deleted test S3 bucket 'validation-test-bucket-365c5ffe-5562-46d6-8aa6-ce96eea8cb01' from region 'us-east-2'.
+2024-12-03 20:43:09,808 INFO Deleted test S3 bucket 'validation-test-bucket-6d05cfdf-782b-48ca-922a-8e1d212b79eb' from region 'us-west-1'.
+2024-12-03 20:43:11,249 INFO Deleted test S3 bucket 'validation-test-bucket-7e7ea98a-d45e-4fa4-a0aa-0578d0cdc5a4' from region 'us-west-2'.
+2024-12-03 20:43:12,257 INFO 
+Validation Summary:
+2024-12-03 20:43:12,258 INFO Test S3 Buckets Created and Deleted: 17
+2024-12-03 20:43:12,262 INFO SQS Messages Received: 1 out of 17
+2024-12-03 20:43:12,263 INFO DynamoDB Entries Verified: Yes
+2024-12-03 20:43:12,263 WARNING AWS Config pipeline validation encountered issues. Please review the logs above for details.
