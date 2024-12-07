@@ -1,4 +1,4 @@
-from typing import TypedDict, List
+from typing import TypedDict, List, Union
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 import json
@@ -10,6 +10,7 @@ import logging
 from typing import Annotated
 from langgraph.graph import StateGraph, END
 from langgraph.graph import add_messages
+from utils.state_utils import append_state_update
 
 # Configure logging
 logging.basicConfig(
@@ -31,16 +32,22 @@ class AgentState(TypedDict):
     file_descriptions: dict
     file_tree: str
     codebase_overview: str
-    edit_decision: str
     files_to_edit: list[str]
     implementation_plan: str
-    aws_info_needed: str
-    aws_info_query: str
-    aws_info_retrieved: str
-    codebase_info_needed: str
-    codebase_info_query: str
-    codebase_info_retrieved: str
     user_questions: list[dict]
+    memory: dict
+
+def manage_memory(existing: dict, updates: Union[dict, str]) -> dict:
+    """Memory management reducer function"""
+    if isinstance(updates, str) and updates == "CLEAR":
+        return {}
+    elif isinstance(updates, dict):
+        return {**existing, **updates}
+    return existing
+
+class PlanningState(TypedDict):
+    messages: Annotated[list, add_messages]
+    memory: Annotated[dict, manage_memory]
 
 class UserQuestion(BaseModel):
     question: str = Field(..., description="The question to ask the user.")
@@ -70,6 +77,7 @@ class ImplementationPlanSchema(BaseModel):
 
 def get_user_query(state: AgentState) -> AgentState:
     """Get the user's query about what changes they want to make"""
+    append_state_update(state["repo_path"], "planning", "Getting user query")
     user_query = input("\nWhat changes would you like to make to the infrastructure? ")
     state["query"] = user_query
     state["messages"].append({"role": "user", "content": user_query})
@@ -77,6 +85,7 @@ def get_user_query(state: AgentState) -> AgentState:
 
 def ask_user_questions(state: AgentState) -> AgentState:
     """Generate and ask clarifying questions to the user"""
+    append_state_update(state["repo_path"], "planning", "Generating clarifying questions")
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC) acting as a copilot. Generate questions to clarify the user's request.
 
@@ -158,6 +167,7 @@ def determine_edit_needs(state: AgentState) -> AgentState:
 
 def identify_files_to_edit(state: AgentState) -> AgentState:
     """Identify which files need to be edited"""
+    append_state_update(state["repo_path"], "planning", "Identifying files to modify")
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC).
 
@@ -179,11 +189,31 @@ def identify_files_to_edit(state: AgentState) -> AgentState:
     3. Configuration files that need updating
     4. Files containing related resources or dependencies
 
-    Return a list of file paths relative to the repository root.
+    IMPORTANT: Return ONLY the file paths, one per line. Do not include any markdown formatting, descriptions, or explanations.
+    Only include files that actually exist in the file tree.
+    Example output format:
+    main.tf
+    variables.tf
+    outputs.tf
     """
 
-    files = llm.invoke(prompt).content.strip().split('\n')
-    state["files_to_edit"] = [f.strip() for f in files if f.strip()]
+    class FilesToEditSchema(BaseModel):
+        files: List[str] = Field(description="List of file paths relative to the repository root that need to be edited")
+
+    model_with_structure = llm.with_structured_output(FilesToEditSchema)
+    result = model_with_structure.invoke(prompt)
+    
+    # Filter out any files that don't exist in the file tree
+    existing_files = []
+    file_tree_lines = state["file_tree"].split('\n')
+    file_tree_files = [line.strip() for line in file_tree_lines if not line.strip().endswith('/')]
+    
+    for file in result.files:
+        file_path = file.strip()
+        if any(line.strip().endswith(file_path) for line in file_tree_files):
+            existing_files.append(file_path)
+    
+    state["files_to_edit"] = existing_files
     return state
 
 def check_aws_info_needed(state: AgentState) -> AgentState:
@@ -248,8 +278,8 @@ def check_codebase_info_needed(state: AgentState) -> AgentState:
 
 def create_implementation_plan(state: AgentState) -> AgentState:
     """Create a detailed implementation plan"""
-    prompt = f"""
-    You are an expert in Infrastructure as Code (IaC).
+    append_state_update(state["repo_path"], "planning", "Creating implementation plan")
+    prompt = f"""As an Infrastructure as Code expert, create a detailed implementation plan.
 
     User's Query: {state["query"]}
 
@@ -259,80 +289,62 @@ def create_implementation_plan(state: AgentState) -> AgentState:
     Files to Edit:
     {json.dumps(state["files_to_edit"], indent=2)}
 
-    Create a detailed, step-by-step implementation plan. 
+    Create a detailed implementation plan that focuses ONLY on the actual code changes needed.
+    Do NOT include validation steps, testing steps, or application instructions.
     
-    IMPORTANT: As Step 0, list any specific information that will be needed from either:
-    a) The AWS infrastructure (current state, configurations, resources, etc.)
-    b) The codebase (variable definitions, module configurations, etc.)
+    The plan should ONLY include:
+    1. The exact code changes needed for each file
+    2. Any new files that need to be created
+    3. The specific configurations and values to use
     
-    Format Step 0 as:
-    Step 0: Information Requirements
-    AWS Information Needed:
-    - [List specific AWS information needed, or "None" if nothing is needed]
-    
-    Codebase Information Needed:
-    - [List specific codebase information needed, or "None" if nothing is needed]
-
-    Then continue with the implementation steps:
-    1. Specific files to modify
-    2. Changes to make in each file
-    3. Order of operations
-    4. Required validations
-    5. Testing steps
-    6. Rollback considerations
+    Format the plan to be clear and direct, focusing only on what code needs to be written or modified.
+    Do not include any instructions about terraform commands, validation, or deployment.
     """
 
     model_with_structure = llm.with_structured_output(ImplementationPlanSchema)
     plan = model_with_structure.invoke(prompt)
-    state["implementation_plan"] = plan.plan
-
-    # Now determine if we need AWS information
-    aws_info_prompt = f"""
-    Based on the implementation plan's Step 0, determine if AWS information is needed.
-    If yes, create a specific query to retrieve that information.
-
-    Implementation Plan:
-    {plan.plan}
-
-    Output 'yes' if AWS information is needed and provide the specific query.
-    Output 'no' if no AWS information is needed.
-    """
-    model_with_structure = llm.with_structured_output(AWSInfoNeededSchema)
-    aws_result = model_with_structure.invoke(aws_info_prompt)
-    state["aws_info_needed"] = aws_result.needed
-    state["aws_info_query"] = aws_result.query if aws_result.needed == "yes" else ""
-    state["aws_info_retrieved"] = ""  # Placeholder for now
-
-    # Determine if we need codebase information
-    codebase_info_prompt = f"""
-    Based on the implementation plan's Step 0, determine if additional codebase information is needed.
-    If yes, create a specific query to retrieve that information.
-
-    Implementation Plan:
-    {plan.plan}
-
-    Output 'yes' if codebase information is needed and provide the specific query.
-    Output 'no' if no codebase information is needed.
-    """
-    model_with_structure = llm.with_structured_output(CodebaseInfoNeededSchema)
-    codebase_result = model_with_structure.invoke(codebase_info_prompt)
-    state["codebase_info_needed"] = codebase_result.needed
-    state["codebase_info_query"] = codebase_result.query if codebase_result.needed == "yes" else ""
-    state["codebase_info_retrieved"] = ""  # Placeholder for now
-
+    
+    # Get planning file path from state or environment
+    planning_file_path = state.get('planning_file_path')
+    if not planning_file_path:
+        planning_file_path = os.getenv('PLANNING_FILE_PATH')
+    if not planning_file_path:
+        planning_file_path = os.path.join(state["repo_path"], "planning", "implementation_plan.txt")
+    
+    # Ensure planning directory exists
+    os.makedirs(os.path.dirname(planning_file_path), exist_ok=True)
+    
+    # Save plan to file
+    with open(planning_file_path, "w") as f:
+        f.write(plan.plan)
+    
+    print(f"\nImplementation plan has been written to: {planning_file_path}")
+    print("You can now review and modify the plan if needed.")
+    
+    while True:
+        user_input = input("\nHave you finished reviewing/modifying the plan? (y/n): ").lower()
+        if user_input == 'y':
+            # Read potentially modified plan
+            with open(planning_file_path, "r") as f:
+                modified_plan = f.read()
+            state["implementation_plan"] = modified_plan
+            state["planning_file_path"] = planning_file_path  # Store the path in state
+            break
+        elif user_input == 'n':
+            print("\nTake your time to review the plan. Press 'y' when ready.")
+        else:
+            print("Please enter 'y' or 'n'")
+    
     return state
 
 def create_planning_agent():
     """Create the planning workflow"""
     workflow = StateGraph(AgentState)
 
-    # Add nodes
+    # Add only necessary nodes
     workflow.add_node("get_query", get_user_query)
     workflow.add_node("ask_questions", ask_user_questions)
-    workflow.add_node("determine_edits", determine_edit_needs)
     workflow.add_node("identify_files", identify_files_to_edit)
-    workflow.add_node("check_aws", check_aws_info_needed)
-    workflow.add_node("check_codebase", check_codebase_info_needed)
     workflow.add_node("create_plan", create_implementation_plan)
 
     # Set entry point
@@ -340,21 +352,8 @@ def create_planning_agent():
 
     # Add edges
     workflow.add_edge("get_query", "ask_questions")
-    workflow.add_edge("ask_questions", "determine_edits")
-
-    # Conditional edges for edit decision
-    workflow.add_conditional_edges(
-        "determine_edits",
-        lambda x: x["edit_decision"],
-        {
-            "yes": "identify_files",
-            "no": END
-        }
-    )
-
-    workflow.add_edge("identify_files", "check_aws")
-    workflow.add_edge("check_aws", "check_codebase")
-    workflow.add_edge("check_codebase", "create_plan")
+    workflow.add_edge("ask_questions", "identify_files")
+    workflow.add_edge("identify_files", "create_plan")
     workflow.add_edge("create_plan", END)
 
     return workflow.compile()
@@ -365,7 +364,8 @@ def start_planning(
     file_tree: str,
     file_descriptions: dict,
     subprocess_handler=None,
-    forge_interface=None
+    forge_interface=None,
+    planning_file_path=None
 ) -> dict:
     """Start the planning process"""
     workflow = create_planning_agent()
@@ -377,16 +377,11 @@ def start_planning(
         "file_descriptions": file_descriptions,
         "file_tree": file_tree,
         "codebase_overview": codebase_overview,
-        "edit_decision": "",
         "files_to_edit": [],
         "implementation_plan": "",
-        "aws_info_needed": "",
-        "aws_info_query": "",
-        "aws_info_retrieved": "",
-        "codebase_info_needed": "",
-        "codebase_info_query": "",
-        "codebase_info_retrieved": "",
-        "user_questions": []
+        "user_questions": [],
+        "memory": {},
+        "planning_file_path": planning_file_path
     })
 
     final_state = workflow.invoke(initial_state)

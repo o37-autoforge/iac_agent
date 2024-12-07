@@ -19,7 +19,7 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.ERROR,
     format='%(asctime)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -33,19 +33,22 @@ def clone_repository():
     """Clone the repository specified in GITHUB_REPO_URL"""
     repo_url = os.getenv('REPO_URL')
     repo_branch = os.getenv('BRANCH_NAME', 'main')
+    repo_path = os.getenv('REPO_PATH')
     
     if not repo_url:
-        raise ValueError("GITHUB_REPO_URL not found in .env file")
-    
-    # Create a 'repo' directory in the current working directory
-    repo_path = os.path.join(os.getcwd(), 'repo')
+        raise ValueError("REPO_URL not found in .env file")
+    if not repo_path:
+        raise ValueError("REPO_PATH not found in .env file")
     
     if os.path.exists(repo_path):
         logging.info("Removing existing repo directory")
         import shutil
         shutil.rmtree(repo_path)
     
-    logging.info(f"Cloning repository from {repo_url}")
+    # Create parent directories if they don't exist
+    os.makedirs(os.path.dirname(repo_path), exist_ok=True)
+    
+    logging.info(f"Cloning repository from {repo_url} to {repo_path}")
     repo = git.Repo.clone_from(repo_url, repo_path)
     repo.git.checkout(repo_branch)
     
@@ -55,10 +58,20 @@ class CodeAnalyzer:
     def __init__(self, llm, gemini_llm):
         self.llm = llm
         self.gemini_llm = gemini_llm
+        self.excluded_patterns = ['.git', 'analysis', 'forge', '.forge']
+
+    def _should_exclude_path(self, path):
+        """Check if a path should be excluded from analysis"""
+        path_lower = path.lower()
+        return any(pattern in path_lower for pattern in self.excluded_patterns)
 
     def analyze_file(self, file_path):
         """Generate detailed analysis for a single file"""
         try:
+            # Skip if file should be excluded
+            if self._should_exclude_path(file_path):
+                return None
+
             with open(file_path, 'r') as f:
                 content = f.read()
 
@@ -101,9 +114,15 @@ class CodeAnalyzer:
             
             all_files = []
             for root, _, files in os.walk(root_path):
-                if '.git' in root or 'analysis' in root:
+                # Skip excluded directories
+                if self._should_exclude_path(root):
                     continue
+                
                 for file in files:
+                    # Skip excluded files
+                    if self._should_exclude_path(file):
+                        continue
+                        
                     if file.endswith(('.tf', '.json', '.yaml', '.yml')):
                         file_path = os.path.join(root, file)
                         with open(file_path, 'r') as f:
@@ -167,16 +186,20 @@ class CodeAnalyzer:
         """Generate a file tree structure"""
         tree_lines = []
         for root, dirs, files in os.walk(directory):
-            # Skip .git and analysis directories
-            dirs[:] = [d for d in dirs if d not in ['.git', 'analysis']]
+            # Skip excluded directories
+            dirs[:] = [d for d in dirs if not self._should_exclude_path(d)]
             
+            if self._should_exclude_path(root):
+                continue
+                
             level = root.replace(directory, '').count(os.sep)
             indent = ' ' * 4 * level
             subdir = os.path.basename(root)
             tree_lines.append(f"{indent}{subdir}/")
             subindent = ' ' * 4 * (level + 1)
             for f in sorted(files):
-                tree_lines.append(f"{subindent}{f}")
+                if not self._should_exclude_path(f):
+                    tree_lines.append(f"{subindent}{f}")
         return '\n'.join(tree_lines)
 
 class CodebaseOverviewHandler(FileSystemEventHandler):
@@ -197,49 +220,31 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
         self.update_all_overviews()
 
     def start_forge_process(self):
-        """Start the forge process and add relevant files to context"""
+        """Start the forge process without adding any initial files to context"""
         try:
-            # Get all relevant files for initial context
-            relevant_files = []
-            for root, _, files in os.walk(self.repo_path):
-                if '.git' in root or 'analysis' in root:
-                    continue
-                for file in files:
-                    if file.endswith(('.tf', '.yaml', '.yml', '.json')):
-                        file_path = os.path.relpath(os.path.join(root, file), self.repo_path)
-                        relevant_files.append(file_path)
-            
-            # Start forge process with these files
-            self.subprocess_handler.start_forge(
-                os.getenv('OPENAI_API_KEY'),
-                [] #relevant_files
-            )
+            self.subprocess_handler.start_forge(os.getenv('OPENAI_API_KEY'), [])
             logging.info("Forge process started successfully")
         except Exception as e:
             logging.error(f"Error starting forge process: {str(e)}")
 
     def update_file_overview(self, file_path):
         """Generate and save overview for a specific file"""
-        # Only process repository files
         if not self.is_repo_file(file_path):
             return
 
-        # Only process text files
         if not self._is_text_file(file_path):
             return
 
         try:
             analysis = self.analyzer.analyze_file(file_path)
             if analysis:
-                # Save analysis as .txt file
                 file_name = os.path.basename(file_path)
                 overview_path = os.path.join(self.analysis_dir, f"{file_name}_analysis.txt")
                 with open(overview_path, 'w') as f:
                     f.write(analysis)
                 
-                logging.info(f"Updated analysis for {file_path}")
         except Exception as e:
-            logging.error(f"Error processing file {file_path}: {str(e)}")
+            pass  # Silently handle errors
 
     def update_codebase_overview(self):
         """Generate and save a comprehensive overview of the entire codebase"""
@@ -259,19 +264,27 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
             logging.info("Updated codebase overview and file tree")
 
     def update_all_overviews(self):
-        """Update both codebase and individual file overviews"""
+        """Update all file and codebase overviews"""
+        logging.info("Starting initial analysis of all files...")
+        
+        # Update codebase overview first (includes file tree)
         self.update_codebase_overview()
+        
+        # Update individual file overviews
         for root, _, files in os.walk(self.repo_path):
             if '.git' in root or 'analysis' in root:
                 continue
             for file in files:
-                file_path = os.path.join(root, file)
-                self.update_file_overview(file_path)
+                if file.endswith(('.tf', '.yaml', '.yml', '.json')):
+                    file_path = os.path.join(root, file)
+                    self.update_file_overview(file_path)
+        
+        logging.info("Completed initial analysis of all files")
 
     def is_repo_file(self, file_path):
-        """Check if a file is a repository file (not in .git or analysis)"""
+        """Check if a file is a repository file (not in excluded directories)"""
         rel_path = os.path.relpath(file_path, self.repo_path)
-        return not (rel_path.startswith('.git') or rel_path.startswith('analysis'))
+        return not self.analyzer._should_exclude_path(rel_path)
 
     def on_modified(self, event):
         if not event.is_directory and self.is_repo_file(event.src_path):
@@ -296,42 +309,106 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
         text_extensions = {'.py', '.js', '.ts', '.json', '.yaml', '.yml', '.tf', '.md', '.txt', '.ini', '.cfg'}
         return os.path.splitext(file_path)[1].lower() in text_extensions
 
-def run_continuous_setup():
-    """Run the continuous setup and return the subprocess handlers"""
-    # Load environment variables
-    load_dotenv()
-    
-    if not os.getenv('GOOGLE_API_KEY'):
-        raise ValueError("GOOGLE_API_KEY not found in .env file")
-    
-    if not os.getenv('OPENAI_API_KEY'):
-        raise ValueError("OPENAI_API_KEY not found in .env file")
+    def _generate_file_tree(self, directory):
+        """Generate a file tree structure"""
+        return self.analyzer._generate_file_tree(directory)
 
-    # Clone/update repository
-    repo_path = clone_repository()
-    
-    # Initialize subprocess handler and forge interface
-    subprocess_handler = SubprocessHandler(Path(repo_path))
-    forge_interface = ForgeInterface(subprocess_handler)
-    
-    # Initialize and start the file watcher
-    event_handler = CodebaseOverviewHandler(repo_path, subprocess_handler, forge_interface)
-    observer = Observer()
-    observer.schedule(event_handler, repo_path, recursive=True)
-    observer.start()
-    
-    logging.info(f"Started monitoring repository: {repo_path}")
-    
-    return subprocess_handler, forge_interface, observer
+def start_continuous_setup(repo_path: str) -> dict:
+    """Start the continuous setup process"""
+    try:
+        # Clone repository to the specified path
+        repo_path = clone_repository()
+        
+        # Initialize handlers
+        subprocess_handler = SubprocessHandler(Path(repo_path))
+        forge_interface = ForgeInterface(subprocess_handler)
+        
+        # Start the observer
+        observer = Observer()
+        event_handler = CodebaseOverviewHandler(repo_path, subprocess_handler, forge_interface)
+        observer.schedule(event_handler, repo_path, recursive=True)
+        observer.start()
+        
+        logging.info(f"Started monitoring repository: {repo_path}")
+        
+        # Wait for initial analysis to complete and get the results
+        analysis_dir = os.path.join(repo_path, 'analysis')
+        max_wait_time = 60  # Maximum wait time in seconds
+        wait_interval = 2   # Check every 2 seconds
+        waited_time = 0
+        
+        while waited_time < max_wait_time:
+            if os.path.exists(analysis_dir):
+                overview_path = os.path.join(analysis_dir, 'codebase_overview.txt')
+                tree_path = os.path.join(analysis_dir, 'file_tree.txt')
+                
+                if os.path.exists(overview_path) and os.path.exists(tree_path):
+                    logging.info("Analysis files have been generated")
+                    break
+            
+            time.sleep(wait_interval)
+            waited_time += wait_interval
+            logging.info(f"Waiting for analysis files to be generated... ({waited_time}s)")
+        
+        if waited_time >= max_wait_time:
+            logging.warning("Timed out waiting for analysis files")
+            return {
+                'subprocess_handler': subprocess_handler,
+                'forge_interface': forge_interface,
+                'observer': observer,
+                'repo_path': repo_path,
+                'codebase_overview': '',
+                'file_tree': '',
+                'file_descriptions': {}
+            }
+        
+        # Read analysis files
+        codebase_overview = ''
+        file_tree = ''
+        file_descriptions = {}
+        
+        try:
+            with open(os.path.join(analysis_dir, 'codebase_overview.txt')) as f:
+                codebase_overview = f.read()
+            
+            with open(os.path.join(analysis_dir, 'file_tree.txt')) as f:
+                file_tree = f.read()
+            
+            # Build file descriptions dictionary
+            for file in os.listdir(analysis_dir):
+                if file.endswith('_analysis.txt'):
+                    original_file = file.replace('_analysis.txt', '')
+                    with open(os.path.join(analysis_dir, file)) as f:
+                        file_descriptions[original_file] = f.read()
+            
+            logging.info("Successfully read all analysis files")
+            
+        except Exception as e:
+            logging.error(f"Error reading analysis files: {e}")
+            # Continue with empty values if files couldn't be read
+        
+        return {
+            'subprocess_handler': subprocess_handler,
+            'forge_interface': forge_interface,
+            'observer': observer,
+            'repo_path': repo_path,
+            'codebase_overview': codebase_overview,
+            'file_tree': file_tree,
+            'file_descriptions': file_descriptions
+        }
+        
+    except Exception as e:
+        logging.error(f"Error in continuous setup: {e}")
+        raise
 
 if __name__ == "__main__":
-    subprocess_handler, forge_interface, observer = run_continuous_setup()
+    setup_state = start_continuous_setup()
     try:
         while True:
             time.sleep(1)  # Check for file changes every second
     except KeyboardInterrupt:
-        observer.stop()
-        subprocess_handler.close_forge()
+        setup_state['observer'].stop()
+        setup_state['subprocess_handler'].close_forge()
         logging.info("Stopping file monitoring")
     
-    observer.join() 
+    setup_state['observer'].join() 

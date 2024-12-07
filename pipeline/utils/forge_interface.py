@@ -2,6 +2,9 @@
 
 import logging
 import re
+import os
+import string
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 def disable_logging():
@@ -14,6 +17,8 @@ disable_logging()
 class ForgeInterface:
     def __init__(self, subprocess_handler):
         self.subprocess_handler = subprocess_handler
+        self.executor = ThreadPoolExecutor(max_workers=1)
+        self.default_timeout = 120  # Increased timeout to 120 seconds
 
     async def set_forge_mode(self, mode: str) -> bool:
         try:
@@ -25,7 +30,7 @@ class ForgeInterface:
 
             starter = "ask" if mode == "ask" else ""
             expected_prompt = f"{starter}>"
-            self.subprocess_handler.child.expect(expected_prompt, timeout=60)
+            self.subprocess_handler.child.expect(expected_prompt, timeout=self.default_timeout)
 
             logger.info(f"Successfully changed to {mode} mode")
             return True
@@ -66,15 +71,13 @@ class ForgeInterface:
             raise
 
     async def execute_subtask(self, task: str) -> bool:
-        logger.info(f"Executing subtask {task}")
-        response = await self.send_code_command(task)
-
-        if "error" in response.lower() or "failed" in response.lower():
-            logger.error(f"forge reported an error for subtask {task}: {response}")
+        """Executes code changes using forge."""
+        try:
+            response = await self.send_code_command(task)
+            return response
+        except Exception as e:
+            print(f"Error executing task: {e}")
             return False
-
-        logger.info(f"Successfully completed subtask {task}")
-        return response
 
     async def close_forge(self):
         try:
@@ -82,6 +85,36 @@ class ForgeInterface:
         except Exception as e:
             logger.error(f"Error while closing forge: {str(e)}")
             print(f"An error occurred while closing forge: {str(e)}")
+
+    async def add_file_to_context(self, file_path: str) -> bool:
+        """
+        Adds a file to the forge context.
+        
+        Args:
+            file_path: Path to the file relative to the workspace root
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            # Verify file exists before attempting to add
+            full_path = os.path.join(self.subprocess_handler.repo_path, file_path)
+            if not os.path.exists(full_path):
+                print(f"File not found: {full_path}")
+                return False
+
+            print(f"Adding {file_path} to forge context...")
+            
+            # Send the command synchronously since pexpect is not async-safe
+            self.subprocess_handler.child.sendline(f"/add {file_path}")
+            self.subprocess_handler.child.expect(">", timeout=self.default_timeout)
+            
+            print(f"Successfully added {file_path} to forge context")
+            return True
+            
+        except Exception as e:
+            print(f"Failed to add {file_path} to forge context: {e}")
+            return False
 
 
 def strip_ansi_codes(text):

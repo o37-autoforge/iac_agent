@@ -122,7 +122,7 @@ def output_validator(state: ValidationState) -> dict:
     prompt = f"""As an Infrastructure as Code expert, validate the output of this infrastructure command.
     
     Command: {state['current_command']}
-    Actual Output: {state['step_output']}
+    Actual Output: {state['command_output']}
     
     Expected Output: {current_command['expected_output']}
     Validation Criteria: {current_command['validation_criteria']}
