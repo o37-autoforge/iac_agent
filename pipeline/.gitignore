@@ -1,0 +1,52 @@
+# Analysis files
+**/analysis/
+**/analysis/*.txt
+**/codebase_overview.txt
+**/file_tree.txt
+**/*_analysis.txt
+
+# Planning files
+**/planning/
+**/planning/*.txt
+**/implementation_plan.txt
+
+# Forge files
+**/.forge/
+**/.forge.chat.history.md
+**/forge_logs/
+**/status_log.txt
+**/.forge.config.json
+
+# State and cache files
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.coverage
+**/htmlcov/
+
+# Environment files
+**/.env
+**/.venv/
+**/env/
+**/venv/
+
+# IDE files
+**/.vscode/
+**/.idea/
+**/*.swp
+**/*.swo
+
+# Temporary files
+**/tmp/
+**/temp/
+**/*.log
+**/*.tmp
+
+# Repository clones
+**/repo/
+!**/repo/README.md  # Keep the README if exists
+
+# Other generated files
+**/*.state
+**/*.memory
+**/*.cache 

@@ -11,6 +11,7 @@ from typing import Annotated
 from langgraph.graph import StateGraph, END
 from langgraph.graph import add_messages
 from utils.state_utils import append_state_update
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +75,22 @@ class CodebaseInfoNeededSchema(BaseModel):
 
 class ImplementationPlanSchema(BaseModel):
     plan: str = Field(description="A detailed, step-by-step plan to implement the user's query.")
+
+class NewFileSchema(BaseModel):
+    files: List[dict] = Field(
+        description="List of new files/folders that need to be created",
+        default_factory=list
+    )
+    class Config:
+        json_schema_extra = {
+            "example": [
+                {
+                    "path": "modules/new_module/main.tf",
+                    "is_directory": False,
+                    "content": "# Terraform configuration..."
+                }
+            ]
+        }
 
 def get_user_query(state: AgentState) -> AgentState:
     """Get the user's query about what changes they want to make"""
@@ -290,12 +307,14 @@ def create_implementation_plan(state: AgentState) -> AgentState:
     {json.dumps(state["files_to_edit"], indent=2)}
 
     Create a detailed implementation plan that focuses ONLY on the actual code changes needed.
-    Do NOT include validation steps, testing steps, or application instructions.
+    Do NOT include validation steps, testing steps, or application instructions. This implementation plan will be sent to a code execution AI agent to be executed. 
     
     The plan should ONLY include:
-    1. The exact code changes needed for each file
-    2. Any new files that need to be created
-    3. The specific configurations and values to use
+
+    1. The original User Query
+    2. The exact code changes needed for each file
+    3. Any new files that need to be created
+    4. The specific configurations and values to use
     
     Format the plan to be clear and direct, focusing only on what code needs to be written or modified.
     Do not include any instructions about terraform commands, validation, or deployment.
@@ -337,15 +356,72 @@ def create_implementation_plan(state: AgentState) -> AgentState:
     
     return state
 
+def prepare_new_files(state: AgentState) -> AgentState:
+    """Parse implementation plan and create any new files/folders needed"""
+    append_state_update(state["repo_path"], "planning", "Creating new files and folders")
+    
+    prompt = f"""As an Infrastructure as Code expert, analyze this implementation plan and identify all new files and folders that need to be created.
+
+    Implementation Plan:
+    {state["implementation_plan"]}
+
+    For each new file or folder mentioned in the plan:
+    1. Extract the full path
+    2. Determine if it's a file or directory
+    3. If it's a file, extract any initial content specified in the plan
+
+    Return a JSON object with this information. Only include files/folders that are explicitly mentioned as needing to be created.
+    Do not include existing files that just need to be modified.
+
+    Example format:
+    {{
+        "files": [
+            {{
+                "path": "modules/new_module/main.tf",
+                "is_directory": false,
+                "content": "# Initial terraform configuration..."
+            }},
+            {{
+                "path": "modules/new_module",
+                "is_directory": true,
+                "content": null
+            }}
+        ]
+    }}
+    """
+
+    model_with_structure = llm.with_structured_output(NewFileSchema)
+    result = model_with_structure.invoke(prompt)
+
+    # Create the files/folders
+    for file_info in result.files:
+        full_path = os.path.join(state["repo_path"], file_info["path"])
+        
+        # Create parent directories if they don't exist
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        
+        if file_info["is_directory"]:
+            os.makedirs(full_path, exist_ok=True)
+            logging.info(f"Created directory: {full_path}")
+        else:
+            # Create file with initial content if provided
+            content = file_info.get("content", "")
+            with open(full_path, "w") as f:
+                f.write(content)
+            logging.info(f"Created file: {full_path}")
+
+    return state
+
 def create_planning_agent():
     """Create the planning workflow"""
     workflow = StateGraph(AgentState)
 
-    # Add only necessary nodes
+    # Add nodes
     workflow.add_node("get_query", get_user_query)
     workflow.add_node("ask_questions", ask_user_questions)
     workflow.add_node("identify_files", identify_files_to_edit)
     workflow.add_node("create_plan", create_implementation_plan)
+    workflow.add_node("prepare_files", prepare_new_files)  # Add new node
 
     # Set entry point
     workflow.set_entry_point("get_query")
@@ -354,7 +430,8 @@ def create_planning_agent():
     workflow.add_edge("get_query", "ask_questions")
     workflow.add_edge("ask_questions", "identify_files")
     workflow.add_edge("identify_files", "create_plan")
-    workflow.add_edge("create_plan", END)
+    workflow.add_edge("create_plan", "prepare_files")  # Add new edge
+    workflow.add_edge("prepare_files", END)  # Update final edge
 
     return workflow.compile()
 

@@ -1,418 +1,580 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, List, Union, Optional, Annotated, Literal
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from typing import TypedDict, Annotated, List, Dict, Any, Optional
+from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 from datetime import datetime
-from langgraph.store.memory import InMemoryStore
 import logging
 import os
-import asyncio
 import subprocess
-from pathlib import Path
+import json
+from utils.state_utils import append_state_update
+from utils.rag_utils import RAGUtils
+from dotenv import load_dotenv
+import asyncio
+import re
 
-# Initialize components
-store = InMemoryStore()
+# Load environment variables
+load_dotenv()
+
 logging.basicConfig(level=logging.INFO)
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
+logger = logging.getLogger(__name__)
+llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
 
 class ValidationState(TypedDict):
-    messages: List[BaseMessage]
+    messages: Annotated[List[BaseMessage], lambda existing, new: existing + [new]]
+    memory: Dict[str, Any]
     implementation_plan: str
-    current_command: Optional[str]
-    command_output: Optional[str]
-    validation_status: Optional[str]
-    detected_errors: Optional[Union[List[str], str]]
-    iteration_count: int
-    max_iterations: int
-    memory: dict
-    file_context: Optional[dict]
-    linting_result: Optional[dict]
+    repo_path: str
+    current_command: Dict[str, str]
+    command_output: str
+    validation_status: str
+    detected_issues: List[str]
+    command_attempts: int
+    max_attempts: int
+    total_attempts: int  # Track total attempts across all commands
+    max_total_attempts: int  # Maximum total attempts allowed
 
-def command_generator(state: ValidationState) -> dict:
-    """Generates validation commands from implementation plan."""
+def check_command_runnable(state: ValidationState) -> ValidationState:
+    """Check if the command is runnable or needs modification."""
+    print("\n=== Checking Command Runnable ===")
+    print(f"Current Command: {state['current_command']}")
     
     prompt = f"""
-    Based on the implementation plan, generate the next validation command to run.
-    Consider previous commands and their outcomes when suggesting the next command.
+    As an Infrastructure as Code expert, analyze this command:
+    {state['current_command']['command']}
     
-    Implementation Plan:
-    {state['implementation_plan']}
+    Purpose: {state['current_command']['purpose']}
     
-    Previous Commands and Outputs:
-    {state['memory'].get('command_history', [])}
+    Check if the command:
+    1. Contains any placeholders that need to be filled
+    2. Uses correct syntax
+    3. References valid files/resources
+    4. Is ready to be executed as-is
     
-    Output in JSON format:
-    - command: The command to run
-    - expected_output: What the command should output if successful
-    - validation_criteria: List of criteria to check in the output
+    Return a JSON object:
+    {{
+        "is_runnable": boolean,
+        "issues": ["list of issues if not runnable"],
+        "user_input_needed": boolean,
+        "user_prompt": "what to ask user if input needed",
+        "modified_command": "suggested modification if needed"
+    }}
     """
     
-    class CommandSchema(BaseModel):
-        command: str
-        expected_output: str
-        validation_criteria: List[str]
-    
-    try:
-        command_output = llm.with_structured_output(CommandSchema).invoke(prompt)
-        state['current_command'] = command_output.command
-        
-        # Store in memory
-        if 'command_history' not in state['memory']:
-            state['memory']['command_history'] = []
-        state['memory']['command_history'].append({
-            'command': command_output.command,
-            'expected_output': command_output.expected_output,
-            'criteria': command_output.validation_criteria,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        state['messages'].append(SystemMessage(content=f"Generated command: {command_output.command}"))
-        state['validation_status'] = 'Execute'
-        
-    except Exception as e:
-        logging.error(f"Command generation failed: {e}")
-        state['validation_status'] = 'END'
-        
-    return state
-
-def command_executor(state: ValidationState) -> dict:
-    """Executes the validation command."""
-    
-    command = state.get('current_command')
-    if not command:
-        state['validation_status'] = 'END'
-        return state
-    
-    try:
-        # Execute command using subprocess
-        result = subprocess.run(command, shell=True, capture_output=True, text=True)
-        state['command_output'] = result.stdout if result.returncode == 0 else result.stderr
-        
-        # Store result in memory
-        if 'execution_results' not in state['memory']:
-            state['memory']['execution_results'] = []
-        state['memory']['execution_results'].append({
-            'command': command,
-            'output': state['command_output'],
-            'success': result.returncode == 0,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        state['messages'].append(SystemMessage(content=f"Executed command: {command}\nOutput: {state['command_output']}"))
-        state['validation_status'] = 'Validate'
-        
-    except Exception as e:
-        logging.error(f"Command execution failed: {e}")
-        state['command_output'] = str(e)
-        state['validation_status'] = 'Error Handler'
-        
-    return state
-
-def output_validator(state: ValidationState) -> dict:
-    """Validates command output against expected results."""
-    
-    command_history = state['memory'].get('command_history', [])
-    current_command = next((cmd for cmd in command_history if cmd['command'] == state['current_command']), None)
-    
-    if not current_command:
-        state['validation_status'] = 'END'
-        return state
-    
-    prompt = f"""As an Infrastructure as Code expert, validate the output of this infrastructure command.
-    
-    Command: {state['current_command']}
-    Actual Output: {state['command_output']}
-    
-    Expected Output: {current_command['expected_output']}
-    Validation Criteria: {current_command['validation_criteria']}
-    
-    Validate the following aspects:
-    1. Resource Creation/Modification
-       - Resources created/updated successfully
-       - Correct resource configurations
-       - Proper resource relationships
-    
-    2. State Management
-       - Terraform state consistency
-       - No state conflicts
-       - Proper state tracking
-    
-    3. Configuration Validation
-       - All required settings applied
-       - Correct value types
-       - Valid configuration combinations
-    
-    4. Security Compliance
-       - Security groups properly configured
-       - IAM roles and policies correct
-       - Encryption settings applied
-    
-    5. Network Configuration
-       - VPC settings correct
-       - Subnet configurations valid
-       - Route tables properly updated
-    
-    6. Service Integration
-       - Service endpoints accessible
-       - Cross-service permissions correct
-       - API configurations valid
-    
-    Output in JSON format:
-    - is_valid: true/false
-    - issues: List of issues found (empty if valid)
-    - suggestions: List of suggestions to fix issues
-    """
-    
-    class ValidationSchema(BaseModel):
-        is_valid: bool
+    class CommandCheck(BaseModel):
+        is_runnable: bool
         issues: List[str]
-        suggestions: List[str]
+        user_input_needed: bool
+        user_prompt: str = ""
+        modified_command: str = ""
     
     try:
-        validation = llm.with_structured_output(ValidationSchema).invoke(prompt)
+        result = llm.with_structured_output(CommandCheck).invoke(prompt)
+        print(f"LLM Check Result: {result}")
         
-        # Store validation result
-        if 'validations' not in state['memory']:
-            state['memory']['validations'] = []
-        state['memory']['validations'].append({
-            'command': state['current_command'],
-            'is_valid': validation.is_valid,
-            'issues': validation.issues,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        if validation.is_valid:
-            state['validation_status'] = 'Lint'
+        if result.is_runnable:
+            print("Command is runnable - proceeding to execute")
+            state["validation_status"] = "execute"
+        elif result.user_input_needed:
+            print(f"User input needed: {result.user_prompt}")
+            choice = input("Choose an option (1: Provide info, 2: Skip, 3: Modify): ").strip()
+            if choice == "1":
+                user_input = input(f"{result.user_prompt}: ").strip()
+                state["current_command"]["command"] = result.modified_command.format(user_input=user_input)
+                state["validation_status"] = "execute"
+            elif choice == "2":
+                logger.info("Skipping this validation step...")
+                state["validation_status"] = "next"
+            else:
+                new_command = input("Enter the modified command: ").strip()
+                state["current_command"]["command"] = new_command
+                state["validation_status"] = "execute"
         else:
-            state['detected_errors'] = validation.issues
-            state['validation_status'] = 'Error Handler'
+            print(f"Modifying command to: {result.modified_command}")
+            state["current_command"]["command"] = result.modified_command
+            state["validation_status"] = "execute"
             
-        state['messages'].append(SystemMessage(content=f"Validation {'passed' if validation.is_valid else 'failed'}: {validation.issues}"))
-        
     except Exception as e:
-        logging.error(f"Validation failed: {e}")
-        state['validation_status'] = 'Error Handler'
-        
+        print(f"ERROR in check_command_runnable: {str(e)}")
+        logger.error(f"Error checking command: {e}")
+        state["validation_status"] = "error"
+    
+    print(f"Validation status set to: {state['validation_status']}")
     return state
 
-def error_handler(state: ValidationState) -> dict:
-    """Handles errors by generating queries for forge."""
+def execute_command(state: ValidationState) -> ValidationState:
+    """Execute the current validation command."""
+    print("\n=== Executing Command ===")
+    print(f"Working Directory: {state['repo_path']}")
+    print(f"Command to execute: {state['current_command']['command']}")
     
-    # Get relevant file context
-    file_context = state.get('file_context', {})
-    
-    prompt = f"""
-    Generate a query to fix the detected errors.
-    
-    Command: {state['current_command']}
-    Output: {state['command_output']}
-    Detected Errors: {state['detected_errors']}
-    
-    File Context:
-    {file_context}
-    
-    Previous Attempts:
-    {state['memory'].get('error_fixes', [])}
-    
-    Generate a specific query for forge to fix these issues.
-    Output in JSON format:
-    - query: The query for forge
-    - files_to_modify: List of files that need modification
-    """
-    
-    class ErrorFixSchema(BaseModel):
-        query: str
-        files_to_modify: List[str]
+    original_dir = os.getcwd()
     
     try:
-        fix = llm.with_structured_output(ErrorFixSchema).invoke(prompt)
+        os.chdir(state["repo_path"])
+        print(f"Changed to directory: {os.getcwd()}")
         
-        # Store error fix attempt
-        if 'error_fixes' not in state['memory']:
-            state['memory']['error_fixes'] = []
-        state['memory']['error_fixes'].append({
-            'errors': state['detected_errors'],
-            'query': fix.query,
-            'files': fix.files_to_modify,
-            'timestamp': datetime.now().isoformat()
+        result = subprocess.run(
+            state["current_command"]["command"],
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        
+        print(f"Command return code: {result.returncode}")
+        # Clean the output before storing
+        raw_output = result.stdout if result.returncode == 0 else result.stderr
+        state["command_output"] = clean_ansi_escape_sequences(raw_output)
+        print(f"Command output:\n{state['command_output']}")
+        
+        state["memory"].setdefault('executed_commands', []).append({
+            'command': state["current_command"]["command"],
+            'output': state["command_output"],  # Store cleaned output
+            'status': 'success' if result.returncode == 0 else 'error',
+            'working_dir': state["repo_path"]
         })
         
-        # Send query to forge
-        # This would integrate with your forge interface
-        # For now, we'll just store it
-        state['messages'].append(SystemMessage(content=f"Generated fix query: {fix.query}"))
-        state['validation_status'] = 'Command Generator'
+        state["validation_status"] = "review"
         
     except Exception as e:
-        logging.error(f"Error handling failed: {e}")
-        state['validation_status'] = 'END'
-        
+        error_msg = clean_ansi_escape_sequences(str(e))  # Clean error message
+        print(f"ERROR in execute_command: {error_msg}")
+        logger.error(f"Command execution failed: {error_msg}")
+        state["command_output"] = error_msg
+        state["validation_status"] = "review"
+    
+    finally:
+        os.chdir(original_dir)
+        print(f"Restored directory to: {os.getcwd()}")
+    
     return state
 
-def output_linter(state: ValidationState) -> dict:
-    """Lints the command output for quality and best practices."""
+def review_output(state: ValidationState) -> ValidationState:
+    """Review command output and determine next steps."""
+    print("\n=== Reviewing Command Output ===")
     
-    prompt = f"""As an Infrastructure as Code expert, lint this infrastructure command output for quality and best practices.
+    # Clean the output before checking
+    clean_output = clean_ansi_escape_sequences(state["command_output"])
+    clean_expected = clean_ansi_escape_sequences(state["current_command"]["expected_output"])
     
-    Command: {state['current_command']}
-    Output: {state['command_output']}
+    success = clean_output and "error" not in clean_output.lower()
+    matches_expected = clean_expected.lower() in clean_output.lower()
+    has_warnings = "warning" in clean_output.lower()
+    has_error = "error" in clean_output.lower()
     
-    Analyze the following aspects:
-    1. Resource Optimization
-       - Instance sizing appropriate
-       - Resource utilization efficient
-       - Cost optimization opportunities
+    print(f"Success check: {success}")
+    print(f"Expected output match: {matches_expected}")
+    print(f"Has warnings: {has_warnings}")
+    print(f"Has errors: {has_error}")
+    print(f"Total attempts so far: {state['total_attempts']}/{state['max_total_attempts']}")
     
-    2. Security Best Practices
-       - Principle of least privilege
-       - Network security groups
-       - Data encryption
-       - Access controls
+    # Check if we've exceeded total attempts
+    if state["total_attempts"] >= state["max_total_attempts"]:
+        print(f"\nMaximum total attempts ({state['max_total_attempts']}) reached across all commands.")
+        print("Moving to next command...")
+        state["validation_status"] = "next"
+        return state
     
-    3. Operational Excellence
-       - Monitoring and logging
-       - Backup and recovery
-       - Scalability considerations
-       - Maintenance windows
+    # For terraform plan, don't try to fix output mismatches
+    if "terraform plan" in state["current_command"]["command"]:
+        if has_error:
+            if state["command_attempts"] < state["max_attempts"]:
+                state["command_attempts"] += 1
+                state["total_attempts"] += 1
+                state["memory"]["fix_query"] = f"Fix this Terraform error: {clean_output}"
+                state["validation_status"] = "fix"
+            else:
+                state["validation_status"] = "next"
+        else:
+            # If plan succeeds without errors, consider it successful regardless of output
+            print("Plan completed successfully - continuing...")
+            state["validation_status"] = "next"
+        return state
     
-    4. Reliability
-       - High availability setup
-       - Fault tolerance
-       - Disaster recovery
-       - Service limits
+    # First try to automatically handle common errors
+    if has_error:
+        error_output = clean_output.lower()
+        
+        # Handle known error patterns automatically
+        if "terraform init" in state["current_command"]["command"]:
+            if "must use terraform init -upgrade" in error_output:
+                print("Detected version mismatch - attempting automatic fix...")
+                state["current_command"]["command"] = "terraform init -upgrade"
+                state["validation_status"] = "execute"
+                return state
+                
+            if "provider.aws: no suitable version installed" in error_output:
+                print("Missing provider - attempting automatic fix...")
+                state["current_command"]["command"] = "terraform init -upgrade"
+                state["validation_status"] = "execute"
+                return state
     
-    5. Performance Efficiency
-       - Resource placement
-       - Network latency
-       - Service integration efficiency
-       - Caching strategies
+    # If we've reached max attempts for this command, move on
+    if state["command_attempts"] >= state["max_attempts"]:
+        print(f"\nMaximum attempts ({state['max_attempts']}) reached for current command.")
+        print("Moving to next command...")
+        state["validation_status"] = "next"
+        return state
     
-    6. Cost Optimization
-       - Resource rightsizing
-       - Reserved capacity usage
-       - Lifecycle management
-       - Cost allocation tags
+    # If everything is successful, move to next command
+    if success and (matches_expected or "terraform plan" in state["current_command"]["command"]):
+        print("Validation step passed successfully")
+        state["validation_status"] = "next"
+    else:
+        # If not successful but still have attempts, try to fix
+        print(f"Validation failed - Attempting fix (Attempt {state['command_attempts'] + 1}/{state['max_attempts']})")
+        state["command_attempts"] += 1
+        state["total_attempts"] += 1
+        state["memory"]["fix_query"] = f"Fix this error: {clean_output}"
+        state["validation_status"] = "fix"
     
-    Output in JSON format:
-    - passes_lint: true/false
-    - lint_issues: List of linting issues found
-    - severity: high/medium/low for each issue
-    """
+    print(f"Setting validation status to: {state['validation_status']}")
+    return state
+
+def get_next_command(state: ValidationState) -> ValidationState:
+    """Get the next command or end validation."""
+    print("\n=== Getting Next Command ===")
     
-    class LintSchema(BaseModel):
-        passes_lint: bool
-        lint_issues: List[str]
-        severity: List[str]
+    remaining_commands = len(state["memory"].get("commands", []))
+    print(f"Remaining commands: {remaining_commands}")
+    
+    if not state["memory"].get("commands"):
+        print("No more commands - ending validation")
+        state["validation_status"] = "end"
+    else:
+        state["current_command"] = state["memory"]["commands"].pop(0)
+        print(f"Next command: {state['current_command']}")
+        state["command_attempts"] = 0
+        state["validation_status"] = "check"
+    
+    print(f"Setting validation status to: {state['validation_status']}")
+    return state
+
+def clean_ansi_escape_sequences(text: str) -> str:
+    """Remove ANSI escape sequences and other decorators from text."""
+    # Remove ANSI escape sequences
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    text = ansi_escape.sub('', text)
+    
+    # Remove other common decorators
+    text = re.sub(r'\^?\[\d+m', '', text)  # Remove color codes
+    text = re.sub(r'\^?\[\d+;\d+m', '', text)  # Remove complex color codes
+    text = re.sub(r'\^?\[0m', '', text)  # Remove reset codes
+    text = re.sub(r'\^?\[4m', '', text)  # Remove underline codes
+    
+    # Clean up any remaining control characters
+    text = ''.join(char for char in text if ord(char) >= 32 or char in '\n\r\t')
+    
+    return text.strip()
+
+def apply_fix(state: ValidationState) -> ValidationState:
+    """Apply fixes using the forge interface."""
+    print("\n=== Applying Fix ===")
+    
+    forge_interface = state["memory"].get("forge_interface")
+    if not forge_interface:
+        print("ERROR: No forge interface available")
+        state["validation_status"] = "next"
+        return state
     
     try:
-        lint_result = llm.with_structured_output(LintSchema).invoke(prompt)
+        fix_query = state["memory"].get("fix_query")
+        if not fix_query:
+            print("ERROR: No fix query available")
+            state["validation_status"] = "next"
+            return state
+            
+        # Clean the fix query before sending to forge
+        clean_query = clean_ansi_escape_sequences(fix_query)
+        print(f"Sending fix query to forge: {clean_query}")
         
-        # Store lint result
-        if 'lint_results' not in state['memory']:
-            state['memory']['lint_results'] = []
-        state['memory']['lint_results'].append({
-            'command': state['current_command'],
-            'passes_lint': lint_result.passes_lint,
-            'issues': lint_result.lint_issues,
-            'severity': lint_result.severity,
+        async def run_with_timeout():
+            try:
+                return await asyncio.wait_for(
+                    forge_interface.execute_subtask(clean_query),
+                    timeout=30
+                )
+            except asyncio.TimeoutError:
+                print("ERROR: Forge response timed out")
+                return None
+        
+        output = asyncio.run(run_with_timeout())
+        if not output:
+            print("ERROR: No output received from forge")
+            state["validation_status"] = "next"
+            return state
+            
+        # Clean the forge output
+        clean_output = clean_ansi_escape_sequences(output)
+        print(f"Fix applied through forge. Clean output: {clean_output}")
+        
+        state["memory"].setdefault('fix_attempts', []).append({
+            'query': clean_query,
+            'output': clean_output,
             'timestamp': datetime.now().isoformat()
         })
         
-        if lint_result.passes_lint:
-            state['validation_status'] = 'Command Generator'
-        else:
-            state['detected_errors'] = lint_result.lint_issues
-            state['validation_status'] = 'Error Handler'
-            
-        state['messages'].append(SystemMessage(content=f"Lint {'passed' if lint_result.passes_lint else 'failed'}: {lint_result.lint_issues}"))
+        state["validation_status"] = "execute"
         
     except Exception as e:
-        logging.error(f"Linting failed: {e}")
-        state['validation_status'] = 'Error Handler'
+        print(f"ERROR in apply_fix: {str(e)}")
+        logger.error(f"Error applying fix: {e}")
+        state["validation_status"] = "next"
+    
+    print(f"Setting validation status to: {state['validation_status']}")
+    return state
+
+def request_user_approval(state: ValidationState) -> ValidationState:
+    """Request user approval of validation results."""
+    print("\n=== Validation Results Summary ===")
+    print("\nExecuted Commands and Results:")
+    
+    all_successful = True
+    for cmd in state["memory"]["executed_commands"]:
+        print(f"\nCommand: {cmd['command']}")
+        print(f"Status: {cmd['status']}")
+        print(f"Output:\n{cmd['output']}")
+        if cmd['status'] != 'success':
+            all_successful = False
+    
+    if not all_successful:
+        print("\nWarning: Some commands did not complete successfully.")
+    
+    print("\nWould you like to:")
+    print("1: Approve and continue")
+    print("2: Fix issues and revalidate")
+    print("3: Exit pipeline")
+    
+    choice = input("Enter your choice (1-3): ").strip()
+    
+    if choice == "1":
+        print("Validation approved - continuing pipeline")
+        state["validation_status"] = "end"
+    elif choice == "2":
+        print("\nWhat would you like to fix?")
+        print("1: Specific issue")
+        print("2: General improvement")
+        fix_choice = input("Enter choice (1-2): ").strip()
         
+        if fix_choice == "1":
+            print("\nAvailable commands:")
+            for i, cmd in enumerate(state["memory"]["executed_commands"], 1):
+                print(f"{i}. {cmd['command']}")
+            cmd_idx = int(input("Enter command number to fix: ").strip()) - 1
+            cmd = state["memory"]["executed_commands"][cmd_idx]
+            
+            print(f"\nCommand output:\n{cmd['output']}")
+            fix_description = input("Describe what needs to be fixed: ").strip()
+            
+            # Build fix query
+            fix_query = f"""
+            Fix the following issue with the Terraform configuration:
+            Command: {cmd['command']}
+            Output: {cmd['output']}
+            Issue to fix: {fix_description}
+            """
+        else:
+            fix_query = input("Describe the improvements needed: ").strip()
+        
+        # Send to executor
+        try:
+            if state["memory"].get("forge_interface"):
+                print("Sending fix query to forge...")
+                async def apply_fix():
+                    return await state["memory"]["forge_interface"].execute_subtask(fix_query)
+                output = asyncio.run(apply_fix())
+                print(f"Fix applied: {output}")
+                
+                # Reset validation state
+                state["command_attempts"] = 0
+                state["total_attempts"] = 0
+                state["validation_status"] = "next"
+                # Preserve the original commands list for revalidation
+                state["memory"]["commands"] = [cmd.dict() for cmd in state["memory"]["original_commands"]]
+            else:
+                print("ERROR: No forge interface available")
+                state["validation_status"] = "end"
+        except Exception as e:
+            print(f"ERROR applying fix: {e}")
+            state["validation_status"] = "end"
+    else:
+        print("Validation rejected - exiting pipeline")
+        state["validation_status"] = "end"
+    
     return state
 
 def create_validation_graph():
-    """Creates the validation workflow graph."""
-    
+    """Create the validation workflow graph."""
     workflow = StateGraph(ValidationState)
     
-    # Add nodes
-    workflow.add_node("command_generator", command_generator)
-    workflow.add_node("command_executor", command_executor)
-    workflow.add_node("output_validator", output_validator)
-    workflow.add_node("error_handler", error_handler)
-    workflow.add_node("output_linter", output_linter)
+    workflow.add_node("check", check_command_runnable)
+    workflow.add_node("execute", execute_command)
+    workflow.add_node("review", review_output)
+    workflow.add_node("next", get_next_command)
+    workflow.add_node("fix", apply_fix)
+    workflow.add_node("approve", request_user_approval)
     
-    # Set entry point
-    workflow.set_entry_point("command_generator")
+    workflow.set_entry_point("next")
     
-    # Add edges
-    workflow.add_edge("command_generator", "command_executor")
-    workflow.add_edge("command_executor", "output_validator")
-    workflow.add_edge("output_validator", "output_linter")
-    
-    def decision_func(state):
-        return state['validation_status']
-    
-    # Add conditional edges
     workflow.add_conditional_edges(
-        "output_validator",
-        decision_func,
+        "check",
+        lambda x: x["validation_status"],
         {
-            "END": END,
-            "Lint": "output_linter",
-            "Error Handler": "error_handler"
+            "execute": "execute",
+            "next": "next"
         }
     )
     
     workflow.add_conditional_edges(
-        "output_linter",
-        decision_func,
+        "execute",
+        lambda x: x["validation_status"],
         {
-            "END": END,
-            "Command Generator": "command_generator",
-            "Error Handler": "error_handler"
+            "review": "review"
         }
     )
     
     workflow.add_conditional_edges(
-        "error_handler",
-        decision_func,
+        "review",
+        lambda x: x["validation_status"],
         {
-            "END": END,
-            "Command Generator": "command_generator"
+            "next": "next",
+            "fix": "fix",
+            "end": END
+        }
+    )
+    
+    workflow.add_edge("fix", "execute")
+    workflow.add_conditional_edges(
+        "next",
+        lambda x: x["validation_status"],
+        {
+            "check": "check",
+            "end": "approve"  # Go to approval instead of ending
+        }
+    )
+    
+    # Add approval node edges
+    workflow.add_conditional_edges(
+        "approve",
+        lambda x: x["validation_status"],
+        {
+            "next": "next",  # For revalidation
+            "end": END
         }
     )
     
     return workflow.compile()
 
-def start_validation_agent(implementation_plan: str, forge_interface) -> dict:
-    """Starts the validation agent."""
+def start_validation_agent(
+    implementation_plan: str,
+    repo_path: str,
+    forge_interface=None,
+    rag_utils: Optional[RAGUtils] = None,
+    max_attempts: int = 3,
+    max_total_attempts: int = 15
+) -> dict:
+    """Start the validation agent."""
+    print("\n=== Starting Validation Agent ===")
+    print(f"Repo path: {repo_path}")
+    print(f"Implementation plan:\n{implementation_plan}")
     
-    app = create_validation_graph()
+    commands_prompt = f"""
+    Generate a list of commands to validate this Terraform implementation WITHOUT making any changes to infrastructure.
+    Focus only on validation, linting, and plan commands.
+    DO NOT include any apply, destroy, or infrastructure-modifying commands.
+    DO NOT include commands that try to query existing infrastructure (as it doesn't exist yet).
     
-    # Initialize state
+    Include commands for:
+    1. Terraform initialization and validation
+    2. Configuration syntax checking
+    3. Plan generation and review
+    4. Security scanning (if applicable)
+    5. Policy compliance checking (if applicable)
+    
+    {implementation_plan}
+    
+    Return a JSON array of commands:
+    [
+        {{
+            "command": "exact command to run",
+            "purpose": "what this validates",
+            "expected_output": "what success looks like"
+        }}
+    ]
+    """
+    
+    class Command(BaseModel):
+        command: str
+        purpose: str
+        expected_output: str
+    
+    class CommandList(BaseModel):
+        commands: List[Command]
+    
+    print("\nGenerating validation commands...")
+    commands = llm.with_structured_output(CommandList).invoke(commands_prompt)
+    print("\nProposed validation commands:")
+    for i, cmd in enumerate(commands.commands, 1):
+        # Clean any potential formatting in the command details
+        clean_cmd = clean_ansi_escape_sequences(cmd.command)
+        clean_purpose = clean_ansi_escape_sequences(cmd.purpose)
+        clean_output = clean_ansi_escape_sequences(cmd.expected_output)
+        
+        print(f"\n{i}. Command: {clean_cmd}")
+        print(f"   Purpose: {clean_purpose}")
+        print(f"   Expected Output: {clean_output}")
+    
+    print("\nWould you like to:")
+    print("1: Proceed with these commands")
+    print("2: Modify commands")
+    print("3: Add new commands")
+    choice = input("Enter your choice (1-3): ").strip()
+    
+    if choice == "2":
+        for i, cmd in enumerate(commands.commands):
+            print(f"\nCommand {i+1}: {cmd.command}")
+            if input("Modify this command? (y/n): ").lower() == 'y':
+                cmd.command = input("Enter new command: ").strip()
+                cmd.purpose = input("Enter purpose: ").strip()
+                cmd.expected_output = input("Enter expected output: ").strip()
+    elif choice == "3":
+        while input("\nAdd new command? (y/n): ").lower() == 'y':
+            new_cmd = Command(
+                command=input("Enter command: ").strip(),
+                purpose=input("Enter purpose: ").strip(),
+                expected_output=input("Enter expected output: ").strip()
+            )
+            commands.commands.append(new_cmd)
+    
     initial_state = ValidationState(
-        messages=[],
+        messages=[SystemMessage(content="Starting validation process")],
+        memory={
+            "commands": [cmd.dict() for cmd in commands.commands],
+            "original_commands": commands.commands,  # Store original commands for revalidation
+            "executed_commands": [],
+            "forge_interface": forge_interface,
+            "rag_utils": rag_utils
+        },
         implementation_plan=implementation_plan,
-        current_command=None,
-        command_output=None,
-        validation_status=None,
-        detected_errors=None,
-        iteration_count=0,
-        max_iterations=10,
-        memory={},
-        file_context={},
-        linting_result=None
+        repo_path=repo_path,
+        current_command={},
+        command_output="",
+        validation_status="",
+        detected_issues=[],
+        command_attempts=0,
+        max_attempts=max_attempts,
+        total_attempts=0,
+        max_total_attempts=max_total_attempts
     )
     
-    # Initialize memory components
-    memory_keys = ['command_history', 'execution_results', 'validations', 'error_fixes', 'lint_results']
-    for key in memory_keys:
-        initial_state['memory'][key] = []
+    print("\nCreating validation workflow...")
+    workflow = create_validation_graph()
     
-    # Start the workflow
-    final_state = app.invoke(initial_state)
+    print("\nStarting validation workflow...")
+    final_state = workflow.invoke(initial_state)
+    
+    print("\n=== Validation Complete ===")
+    print(f"Final validation status: {final_state['validation_status']}")
+    
     return final_state 

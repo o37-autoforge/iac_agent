@@ -1,8 +1,13 @@
 import os
 from datetime import datetime
 from langchain_openai import ChatOpenAI
+from pathlib import Path
+from dotenv import load_dotenv
 
-llm = ChatOpenAI(model="gpt-4o", temperature=0)
+# Load environment variables
+load_dotenv()
+
+llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
 
 def append_state_update(repo_path: str, agent_name: str, current_action: str):
     """
