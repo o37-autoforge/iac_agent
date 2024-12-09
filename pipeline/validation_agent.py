@@ -37,6 +37,7 @@ class ValidationState(TypedDict):
 
 def check_command_runnable(state: ValidationState) -> ValidationState:
     """Check if the command is runnable or needs modification."""
+    append_state_update(state["repo_path"], "validation", "check_command", f"Checking command: {state['current_command'].get('command', '')}")
     print("\n=== Checking Command Runnable ===")
     print(f"Current Command: {state['current_command']}")
     
@@ -105,6 +106,7 @@ def check_command_runnable(state: ValidationState) -> ValidationState:
 
 def execute_command(state: ValidationState) -> ValidationState:
     """Execute the current validation command."""
+    append_state_update(state["repo_path"], "validation", "execute_command", f"Executing: {state['current_command'].get('command', '')}")
     print("\n=== Executing Command ===")
     print(f"Working Directory: {state['repo_path']}")
     print(f"Command to execute: {state['current_command']['command']}")
@@ -152,6 +154,7 @@ def execute_command(state: ValidationState) -> ValidationState:
 
 def review_output(state: ValidationState) -> ValidationState:
     """Review command output and determine next steps."""
+    append_state_update(state["repo_path"], "validation", "review_output", "Reviewing command execution results")
     print("\n=== Reviewing Command Output ===")
     
     # Clean the output before checking
@@ -234,6 +237,7 @@ def review_output(state: ValidationState) -> ValidationState:
 
 def get_next_command(state: ValidationState) -> ValidationState:
     """Get the next command or end validation."""
+    append_state_update(state["repo_path"], "validation", "get_next_command", "Getting next validation command")
     print("\n=== Getting Next Command ===")
     
     remaining_commands = len(state["memory"].get("commands", []))
@@ -269,12 +273,13 @@ def clean_ansi_escape_sequences(text: str) -> str:
     return text.strip()
 
 def apply_fix(state: ValidationState) -> ValidationState:
-    """Apply fixes using the forge interface."""
+    """Apply fixes using the forge wrapper."""
+    append_state_update(state["repo_path"], "validation", "apply_fix", "Applying fixes to validation issues")
     print("\n=== Applying Fix ===")
     
-    forge_interface = state["memory"].get("forge_interface")
-    if not forge_interface:
-        print("ERROR: No forge interface available")
+    forge_wrapper = state["memory"].get("forge_wrapper")
+    if not forge_wrapper:
+        print("ERROR: No forge wrapper available")
         state["validation_status"] = "next"
         return state
     
@@ -289,25 +294,19 @@ def apply_fix(state: ValidationState) -> ValidationState:
         clean_query = clean_ansi_escape_sequences(fix_query)
         print(f"Sending fix query to forge: {clean_query}")
         
-        async def run_with_timeout():
-            try:
-                return await asyncio.wait_for(
-                    forge_interface.execute_subtask(clean_query),
-                    timeout=30
-                )
-            except asyncio.TimeoutError:
-                print("ERROR: Forge response timed out")
-                return None
+        # Use ForgeWrapper to apply changes
+        result = forge_wrapper.chat(clean_query)
         
-        output = asyncio.run(run_with_timeout())
-        if not output:
-            print("ERROR: No output received from forge")
-            state["validation_status"] = "next"
-            return state
+        # Check if we got an EditResult
+        if hasattr(result, 'files_changed'):
+            print(f"Files changed: {', '.join(result.files_changed)}")
+            if result.diff:
+                print(f"Changes made:\n{result.diff}")
+            clean_output = f"Changed files: {', '.join(result.files_changed)}"
+        else:
+            clean_output = clean_ansi_escape_sequences(str(result))
             
-        # Clean the forge output
-        clean_output = clean_ansi_escape_sequences(output)
-        print(f"Fix applied through forge. Clean output: {clean_output}")
+        print(f"Fix applied through forge. Output: {clean_output}")
         
         state["memory"].setdefault('fix_attempts', []).append({
             'query': clean_query,
@@ -327,6 +326,7 @@ def apply_fix(state: ValidationState) -> ValidationState:
 
 def request_user_approval(state: ValidationState) -> ValidationState:
     """Request user approval of validation results."""
+    append_state_update(state["repo_path"], "validation", "request_user_approval", "Requesting user approval for validation")
     print("\n=== Validation Results Summary ===")
     print("\nExecuted Commands and Results:")
     
@@ -377,13 +377,22 @@ def request_user_approval(state: ValidationState) -> ValidationState:
         else:
             fix_query = input("Describe the improvements needed: ").strip()
         
-        # Send to executor
+        # Send to forge wrapper
         try:
-            if state["memory"].get("forge_interface"):
+            forge_wrapper = state["memory"].get("forge_wrapper")
+            if forge_wrapper:
                 print("Sending fix query to forge...")
-                async def apply_fix():
-                    return await state["memory"]["forge_interface"].execute_subtask(fix_query)
-                output = asyncio.run(apply_fix())
+                result = forge_wrapper.chat(fix_query)
+                
+                # Check if we got an EditResult
+                if hasattr(result, 'files_changed'):
+                    print(f"Files changed: {', '.join(result.files_changed)}")
+                    if result.diff:
+                        print(f"Changes made:\n{result.diff}")
+                    output = f"Changed files: {', '.join(result.files_changed)}"
+                else:
+                    output = str(result)
+                    
                 print(f"Fix applied: {output}")
                 
                 # Reset validation state
@@ -393,7 +402,7 @@ def request_user_approval(state: ValidationState) -> ValidationState:
                 # Preserve the original commands list for revalidation
                 state["memory"]["commands"] = [cmd.dict() for cmd in state["memory"]["original_commands"]]
             else:
-                print("ERROR: No forge interface available")
+                print("ERROR: No forge wrapper available")
                 state["validation_status"] = "end"
         except Exception as e:
             print(f"ERROR applying fix: {e}")
@@ -469,8 +478,8 @@ def create_validation_graph():
 def start_validation_agent(
     implementation_plan: str,
     repo_path: str,
-    forge_interface=None,
-    rag_utils: Optional[RAGUtils] = None,
+    forge=None,
+    execution_state=None,
     max_attempts: int = 3,
     max_total_attempts: int = 15
 ) -> dict:
@@ -553,8 +562,7 @@ def start_validation_agent(
             "commands": [cmd.dict() for cmd in commands.commands],
             "original_commands": commands.commands,  # Store original commands for revalidation
             "executed_commands": [],
-            "forge_interface": forge_interface,
-            "rag_utils": rag_utils
+            "forge": forge
         },
         implementation_plan=implementation_plan,
         repo_path=repo_path,

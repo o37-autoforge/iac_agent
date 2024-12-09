@@ -15,3 +15,7 @@ forge/__version__.py
 .env
 awsSetup/
 
+# State tracking files
+agent_states/
+*_state.txt
+

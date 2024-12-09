@@ -35,6 +35,7 @@ class SubprocessHandler:
                 encoding='utf-8',
                 timeout=120  # Increased timeout to accommodate startup time
             )
+        self.child.maxread = 1000000
 
         expected_prompt = 'Use /help <question> for help, run "forge --help" to see cmd line arg'
         self.child.expect(expected_prompt, timeout=120)
@@ -86,7 +87,9 @@ class SubprocessHandler:
         Sends a command to forge and returns the response.
         """
         while True:
-            self.child.sendline(command.replace("\n", ""))
+            print(f"Sending command to forge: {command}")
+            
+            self.child.send(command.replace("\n", ""))
             logger.debug(f"Sent command to forge: {command}")
 
             try:

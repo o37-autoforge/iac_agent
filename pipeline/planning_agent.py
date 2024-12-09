@@ -19,6 +19,8 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+logger = logging.getLogger(__name__)
+
 
 # Load environment variables
 load_dotenv()
@@ -94,7 +96,7 @@ class NewFileSchema(BaseModel):
 
 def get_user_query(state: AgentState) -> AgentState:
     """Get the user's query about what changes they want to make"""
-    append_state_update(state["repo_path"], "planning", "Getting user query")
+    append_state_update(state["repo_path"], "planning", "get_user_query", "Getting user infrastructure request")
     user_query = input("\nWhat changes would you like to make to the infrastructure? ")
     state["query"] = user_query
     state["messages"].append({"role": "user", "content": user_query})
@@ -102,7 +104,7 @@ def get_user_query(state: AgentState) -> AgentState:
 
 def ask_user_questions(state: AgentState) -> AgentState:
     """Generate and ask clarifying questions to the user"""
-    append_state_update(state["repo_path"], "planning", "Generating clarifying questions")
+    append_state_update(state["repo_path"], "planning", "ask_user_questions", "Generating clarifying questions")
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC) acting as a copilot. Generate questions to clarify the user's request.
 
@@ -162,6 +164,7 @@ def ask_user_questions(state: AgentState) -> AgentState:
 
 def determine_edit_needs(state: AgentState) -> AgentState:
     """Determine if we need to edit the codebase"""
+    append_state_update(state["repo_path"], "planning", "determine_edit_needs", "Analyzing required code changes")
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC).
 
@@ -184,7 +187,9 @@ def determine_edit_needs(state: AgentState) -> AgentState:
 
 def identify_files_to_edit(state: AgentState) -> AgentState:
     """Identify which files need to be edited"""
-    append_state_update(state["repo_path"], "planning", "Identifying files to modify")
+    append_state_update(state["repo_path"], "planning", "identify_files", "Identifying affected files")
+    logger.info("Starting file identification")
+    
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC).
 
@@ -202,39 +207,72 @@ def identify_files_to_edit(state: AgentState) -> AgentState:
     Based on the user's request and the codebase structure, identify which files need to be edited.
     Consider:
     1. Files that directly implement the requested changes
-    2. Files that might be affected by the changes
+    2. Files that might be affected by the changes (dependencies)
     3. Configuration files that need updating
-    4. Files containing related resources or dependencies
+    4. Files containing related resources
+    5. New files that need to be created
 
-    IMPORTANT: Return ONLY the file paths, one per line. Do not include any markdown formatting, descriptions, or explanations.
-    Only include files that actually exist in the file tree.
-    Example output format:
-    main.tf
-    variables.tf
-    outputs.tf
+    Return a JSON object with:
+    1. Existing files that need modification
+    2. New files that need to be created
+    3. Directories that need to be created
     """
 
-    class FilesToEditSchema(BaseModel):
-        files: List[str] = Field(description="List of file paths relative to the repository root that need to be edited")
+    class FilesToEdit(BaseModel):
+        existing_files: List[str] = Field(description="List of existing files that need to be modified")
+        new_files: List[str] = Field(description="List of new files that need to be created")
+        new_directories: List[str] = Field(description="List of new directories that need to be created")
 
-    model_with_structure = llm.with_structured_output(FilesToEditSchema)
+    model_with_structure = llm.with_structured_output(FilesToEdit)
     result = model_with_structure.invoke(prompt)
     
-    # Filter out any files that don't exist in the file tree
-    existing_files = []
+    # Filter out any non-existent files from existing_files
     file_tree_lines = state["file_tree"].split('\n')
     file_tree_files = [line.strip() for line in file_tree_lines if not line.strip().endswith('/')]
     
-    for file in result.files:
+    existing_files = []
+    for file in result.existing_files:
         file_path = file.strip()
-        if any(line.strip().endswith(file_path) for line in file_tree_files):
+        # Remove any 'repo/' prefix if it exists
+        if file_path.startswith('repo/'):
+            file_path = file_path[5:]
+            
+        full_path = os.path.join(state["repo_path"], file_path)
+        if os.path.exists(full_path) or any(line.strip().endswith(file_path) for line in file_tree_files):
             existing_files.append(file_path)
+            logger.info(f"Identified existing file to edit: {file_path}")
+        else:
+            logger.warning(f"File not found: {full_path}")
     
+    # Process new files and directories
+    new_files = []
+    for file in result.new_files:
+        file_path = file.strip()
+        if file_path.startswith('repo/'):
+            file_path = file_path[5:]
+        new_files.append(file_path)
+    
+    new_directories = []
+    for directory in result.new_directories:
+        dir_path = directory.strip()
+        if dir_path.startswith('repo/'):
+            dir_path = dir_path[5:]
+        new_directories.append(dir_path)
+    
+    # Store both existing and new files in state
     state["files_to_edit"] = existing_files
+    state["memory"]["new_files"] = [os.path.join(state["repo_path"], f) for f in new_files]
+    state["memory"]["new_directories"] = [os.path.join(state["repo_path"], d) for d in new_directories]
+    
+    logger.info(f"Files to edit: {state['files_to_edit']}")
+    logger.info(f"New files to create: {state['memory']['new_files']}")
+    logger.info(f"New directories to create: {state['memory']['new_directories']}")
+    
     return state
 
 def check_aws_info_needed(state: AgentState) -> AgentState:
     """Determine if we need to fetch information from AWS"""
+    append_state_update(state["repo_path"], "planning", "check_aws_info", "Checking AWS information requirements")
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC).
 
@@ -265,6 +303,7 @@ def check_aws_info_needed(state: AgentState) -> AgentState:
 
 def check_codebase_info_needed(state: AgentState) -> AgentState:
     """Determine if we need additional information from the codebase"""
+    append_state_update(state["repo_path"], "planning", "check_codebase_info", "Checking codebase information needs")
     prompt = f"""
     You are an expert in Infrastructure as Code (IaC).
 
@@ -295,7 +334,7 @@ def check_codebase_info_needed(state: AgentState) -> AgentState:
 
 def create_implementation_plan(state: AgentState) -> AgentState:
     """Create a detailed implementation plan"""
-    append_state_update(state["repo_path"], "planning", "Creating implementation plan")
+    append_state_update(state["repo_path"], "planning", "create_plan", "Creating detailed implementation plan")
     prompt = f"""As an Infrastructure as Code expert, create a detailed implementation plan.
 
     User's Query: {state["query"]}
@@ -358,58 +397,62 @@ def create_implementation_plan(state: AgentState) -> AgentState:
 
 def prepare_new_files(state: AgentState) -> AgentState:
     """Parse implementation plan and create any new files/folders needed"""
-    append_state_update(state["repo_path"], "planning", "Creating new files and folders")
+    append_state_update(state["repo_path"], "planning", "prepare_files", "Creating new files and directories")
+    logger.info("Starting new file preparation")
     
-    prompt = f"""As an Infrastructure as Code expert, analyze this implementation plan and identify all new files and folders that need to be created.
-
-    Implementation Plan:
-    {state["implementation_plan"]}
-
-    For each new file or folder mentioned in the plan:
-    1. Extract the full path
-    2. Determine if it's a file or directory
-    3. If it's a file, extract any initial content specified in the plan
-
-    Return a JSON object with this information. Only include files/folders that are explicitly mentioned as needing to be created.
-    Do not include existing files that just need to be modified.
-
-    Example format:
-    {{
-        "files": [
-            {{
-                "path": "modules/new_module/main.tf",
-                "is_directory": false,
-                "content": "# Initial terraform configuration..."
-            }},
-            {{
-                "path": "modules/new_module",
-                "is_directory": true,
-                "content": null
-            }}
-        ]
-    }}
-    """
-
-    model_with_structure = llm.with_structured_output(NewFileSchema)
-    result = model_with_structure.invoke(prompt)
-
-    # Create the files/folders
-    for file_info in result.files:
-        full_path = os.path.join(state["repo_path"], file_info["path"])
+    # Get forge instance from memory
+    forge = state["memory"].get("forge")
+    if not forge:
+        logger.error("No forge instance found in memory")
+        return state
+    
+    # Create new directories first
+    new_directories = state["memory"].get("new_directories", [])
+    for directory in new_directories:
+        os.makedirs(directory, exist_ok=True)
+        logger.info(f"Created directory: {directory}")
+    
+    # Create new files
+    new_files = state["memory"].get("new_files", [])
+    for file_path in new_files:
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         
-        # Create parent directories if they don't exist
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        
-        if file_info["is_directory"]:
-            os.makedirs(full_path, exist_ok=True)
-            logging.info(f"Created directory: {full_path}")
-        else:
-            # Create file with initial content if provided
-            content = file_info.get("content", "")
-            with open(full_path, "w") as f:
-                f.write(content)
-            logging.info(f"Created file: {full_path}")
-
+        # Create empty file if it doesn't exist
+        if not os.path.exists(file_path):
+            with open(file_path, "w") as f:
+                f.write("")
+            logger.info(f"Created new file: {file_path}")
+            
+            # Add new files to files_to_edit
+            relative_path = os.path.relpath(file_path, state["repo_path"])
+            if relative_path not in state["files_to_edit"]:
+                state["files_to_edit"].append(relative_path)
+                logger.info(f"Added new file to edit list: {relative_path}")
+    
+    # Add all files to forge context and prepare for review
+    files_for_review = {}
+    for file_path in state["files_to_edit"]:
+        full_path = os.path.join(state["repo_path"], file_path)
+        try:
+            # Add to forge context
+            forge.add_file(full_path)
+            logger.info(f"Added file to forge context: {full_path}")
+            
+            # Read current content for review
+            if os.path.exists(full_path):
+                with open(full_path, 'r') as f:
+                    files_for_review[file_path] = f.read()
+            else:
+                files_for_review[file_path] = ""  # Empty content for new files
+                
+        except Exception as e:
+            logger.error(f"Error processing file {full_path}: {str(e)}")
+    
+    # Store files for review in state memory
+    state["memory"]["files_for_review"] = files_for_review
+    logger.info(f"Prepared {len(files_for_review)} files for review")
+    
     return state
 
 def create_planning_agent():
@@ -440,8 +483,7 @@ def start_planning(
     codebase_overview: str,
     file_tree: str,
     file_descriptions: dict,
-    subprocess_handler=None,
-    forge_interface=None,
+    forge=None,
     planning_file_path=None
 ) -> dict:
     """Start the planning process"""
@@ -457,7 +499,9 @@ def start_planning(
         "files_to_edit": [],
         "implementation_plan": "",
         "user_questions": [],
-        "memory": {},
+        "memory": {
+            "forge": forge
+        },
         "planning_file_path": planning_file_path
     })
 

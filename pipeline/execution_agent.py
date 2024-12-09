@@ -1,8 +1,7 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated, List, Dict, Any, Literal
+from typing import TypedDict, Annotated, List, Dict, Any, Literal, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-from execution_agent import code_executor
 from pydantic import BaseModel
 from datetime import datetime
 import logging
@@ -12,14 +11,17 @@ import json
 from pathlib import Path
 from utils.rag_utils import RAGUtils
 from utils.state_utils import append_state_update
-from typing import Optional
+from pydantic import Field
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+# Initialize LLM
 llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
 def manage_messages(existing: List[BaseMessage], new_message: BaseMessage) -> List[BaseMessage]:
@@ -34,6 +36,7 @@ class ExecutionState(TypedDict):
     code_execution_output: str
     iteration_count: int
     max_iterations: int
+    files_to_edit: list[str]
     validation_ready: bool
     current_files: dict  # Current state of edited files
     code_query_decision: str  # Next node to execute
@@ -42,10 +45,23 @@ class ExecutionState(TypedDict):
 async def run_forge_subtask(forge_interface, query: str) -> str:
     return await forge_interface.execute_subtask(query)
 
-def code_executor(state: ExecutionState, forge_interface) -> ExecutionState:
+def code_executor(state: ExecutionState) -> ExecutionState:
     """Execute code changes based on the current implementation_plan."""
     logger.info("Starting code execution")
-    append_state_update(state["repo_path"], "execution", "Executing code changes")
+    append_state_update(state["repo_path"], "execution", "code_executor", "Executing infrastructure code changes")
+    
+    # Get user inputs and current issue from memory
+    user_inputs = state["memory"].get('user_inputs', [])
+    current_issue = state["memory"].get('current_issue')
+    forge = state["memory"].get('forge')
+    
+    if not forge:
+        logger.error("No forge instance available")
+        state["code_query_decision"] = "end"
+        return state
+    
+    # Check if this exact query has been sent before
+    previous_queries = state["memory"].get('previous_queries', set())
     
     # Build query based on iteration count
     if state["iteration_count"] == 1:
@@ -53,38 +69,65 @@ def code_executor(state: ExecutionState, forge_interface) -> ExecutionState:
         As an Infrastructure as Code expert, implement the following implementation plan.
         Follow these strict guidelines:
         1. Make changes ONLY to the files mentioned in the implementation plan
-        2. Follow IaC best practices for security and configuration 
+        2. Follow IaC best practices for security and configuration
+        3. Use these specific values from user input:
+        {json.dumps(user_inputs, indent=2) if user_inputs else "No user inputs yet"}
 
         Implementation Plan:
         {state["implementation_plan"]}
         """
     else:
+        # For subsequent iterations, prioritize the current issue
         query = f"""
-        As an Infrastructure as Code expert, apply the following fixes to match the implementation plan:
-        
-        Original Implementation Plan (attempted to integrate ):
-        {state["implementation_plan"]}
-        
-        Required Fixes:
-        {json.dumps(state["memory"].get("fixes", []), indent=2)}
-        """
+        As an Infrastructure as Code expert, fix the following issue in the infrastructure code:
 
+        Issue to Fix:
+        {current_issue}
+
+        Available User Inputs:
+        {json.dumps(user_inputs, indent=2) if user_inputs else "No user inputs available"}
+
+        Original Implementation Plan:
+        {state["implementation_plan"]}
+
+        Focus on addressing the identified issue first, using any available information from user inputs.
+        """
+    
+    # Check if this query has been sent before
+    if query in previous_queries:
+        logger.warning("Duplicate query detected, skipping execution")
+        state["code_query_decision"] = "review"
+        return state
+    
+    # Add query to previous queries
+    previous_queries.add(query)
+    state["memory"]['previous_queries'] = previous_queries
+    
+    logger.info(f"Sending query to forge:\n{query}")
+    
     try:
-        output = asyncio.run(run_forge_subtask(forge_interface, query))
-        state["code_execution_output"] = output
+        # Get clean response and file updates
+        clean_response, edited_files = forge.chat_and_get_updates(query)
+        
+        # Store the edited files in state
+        state["current_files"] = edited_files
+        state["code_execution_output"] = clean_response
         state["code_query_decision"] = "review"
         
         state["messages"] = manage_messages(
             state["messages"], 
-            SystemMessage(content=f"Code execution completed: {output[:100]}...")
+            SystemMessage(content=f"Code execution completed: {clean_response[:100]}...")
         )
         
         if 'code_executions' not in state["memory"]:
             state["memory"]['code_executions'] = []
         state["memory"]['code_executions'].append({
             'query': query,
-            'output': output,
+            'output': clean_response,
+            'edited_files': list(edited_files.keys()),
             'iteration': state["iteration_count"],
+            'current_issue': current_issue,
+            'user_inputs': user_inputs,
             'timestamp': datetime.now().isoformat()
         })
     except Exception as e:
@@ -97,61 +140,80 @@ def code_executor(state: ExecutionState, forge_interface) -> ExecutionState:
 
     return state
 
-def review_code(state: ExecutionState) -> ExecutionState:
-    """Review the code execution output and decide next steps."""
+def code_reviewer(state: ExecutionState) -> ExecutionState:
+    """Review code changes for correctness and completeness."""
     logger.info("Starting code review")
+    append_state_update(state["repo_path"], "execution", "code_reviewer", "Reviewing infrastructure code changes")
     
-    # Read current state of files
-    files_to_review = state["memory"].get('files_to_edit', [])
-    file_contents = {}
-    
-    for file_path in files_to_review:
-        full_path = os.path.join(state["repo_path"], file_path)
-        try:
-            with open(full_path, 'r') as f:
-                file_contents[file_path] = f.read()
-        except Exception as e:
-            logger.error(f"Error reading file {file_path}: {str(e)}")
-            file_contents[file_path] = "Error reading file"
-    
-    state["current_files"] = file_contents
-    
-    class ReviewDecision(BaseModel):
-        decision: Literal["READY", "FIX", "RAG", "USER"]
-        query_or_prompt: str
-        reason: str
-        issues_found: List[str]
-    
+    # Get files that need to be reviewed
+    files_to_review = state["files_to_edit"]
+    if not files_to_review:
+        logger.warning("No files marked for review!")
+        state["code_query_decision"] = "user"
+        state["memory"]['current_user_prompt'] = "Please provide the current contents of the infrastructure code files to review."
+        return state
+        
+    # Build review prompt
     prompt = f"""
-    As an Infrastructure as Code expert, review the infrastructure code.
-
-    Current File Contents:
-    {json.dumps(file_contents, indent=2)}
-
-    Implementation Plan:
-    {state["implementation_plan"]}
-
-    Your job is to determine if the code matches the implementation plan and is ready for validation.
-
-    The goal is to make sure the code is ready to be ran without any errors.
-
-    Review the changes and determine if any of the following are needed:
-    1. READY: Code does not have syntax errors, misconfigurations, or placeholder values.
-    2. FIX: Code does not match the implementation plan. In this case, provide a query explaining the next changes to be made.
-    3. RAG: Need additional context from codebase to fill in missing details, syntax, etc.
-    4. USER: Need user input for decisions to fill in missing details (e.g. resource names, an AMI, etc.)
+    Review the following infrastructure code changes:
+    
+    Files being reviewed: {json.dumps(files_to_review, indent=2)}
+    Implementation Plan: {state["implementation_plan"]}
+    
+    Make a decision about the code changes:
+    - READY: Code is complete and correct
+    - FIX: Code needs fixes (provide details)
+    - RAG: Need to query knowledge base (provide query)
+    - USER: Need user input (provide question)
+    
+    IMPORTANT RULES:
+    - If you choose anything except READY, you MUST provide a clear explanation of the issue
+    - For RAG or USER decisions, you MUST also provide the exact query needed
+    - For FIX, your explanation must clearly state what's wrong
+    - Be specific and concise in your explanation
+    
+    Example Response 1:
+    {{
+        "decision": "READY",
+        "explanation": "All code matches implementation plan perfectly"
+    }}
+    
+    Example Response 2:
+    {{
+        "decision": "USER",
+        "explanation": "Missing IP address for security group configuration",
+        "next_query": "Please provide the IP address that should be allowed SSH access"
+    }}
     """
+    class ReviewDecision(BaseModel):
+        """Model for code review decisions"""
+        decision: Literal["READY", "FIX", "RAG", "USER"] = Field(
+            description="The decision about the code changes"
+        )
+        explanation: str = Field(
+            description="Explanation for the decision"
+        )
+        next_query: Optional[str] = Field(
+            description="The next query to execute (required for RAG and USER decisions)",
+            default=None
+        )
 
     try:
-        # Use structured output instead of parsing JSON
         result = llm.with_structured_output(ReviewDecision).invoke(prompt)
+        
+        # Log the review decision and explanation
+        logger.info(f"Review Decision: {result.decision}")
+        logger.info(f"Explanation: {result.explanation}")
+        if result.next_query:
+            logger.info(f"Next Query: {result.next_query}")
         
         # Store review result
         if 'reviews' not in state["memory"]:
             state["memory"]['reviews'] = []
         state["memory"]['reviews'].append({
             'decision': result.decision,
-            'issues': result.issues_found,
+            'explanation': result.explanation,
+            'next_query': result.next_query,
             'timestamp': datetime.now().isoformat()
         })
         
@@ -159,13 +221,20 @@ def review_code(state: ExecutionState) -> ExecutionState:
         state["code_query_decision"] = result.decision.lower()
         
         if result.decision == "FIX":
-            if 'fixes' not in state["memory"]:
-                state["memory"]['fixes'] = []
-            state["memory"]['fixes'].append(result.query_or_prompt)
+            # Store the explanation for use in the next iteration
+            state["memory"]['current_issue'] = result.explanation
         elif result.decision == "RAG":
-            state["memory"]['current_rag_query'] = result.query_or_prompt
+            if not result.next_query:
+                logger.error("RAG decision requires next_query")
+                state["code_query_decision"] = "end"
+            else:
+                state["memory"]['current_rag_query'] = result.next_query
         elif result.decision == "USER":
-            state["memory"]['current_user_prompt'] = result.query_or_prompt
+            if not result.next_query:
+                logger.error("USER decision requires next_query")
+                state["code_query_decision"] = "end"
+            else:
+                state["memory"]['current_user_prompt'] = result.next_query
             
         state["iteration_count"] += 1
         
@@ -181,6 +250,7 @@ def review_code(state: ExecutionState) -> ExecutionState:
 
 def query_rag(state: ExecutionState) -> ExecutionState:
     """Query RAG for missing info."""
+    append_state_update(state["repo_path"], "execution", "query_rag", "Querying knowledge base for context")
     logger.info("Executing RAG query")
     
     try:
@@ -209,6 +279,7 @@ def query_rag(state: ExecutionState) -> ExecutionState:
 
 def handle_user_input(state: ExecutionState) -> ExecutionState:
     """Get user input for decisions."""
+    append_state_update(state["repo_path"], "execution", "handle_user_input", "Requesting user input for decisions")
     logger.info("Getting user input")
     
     try:
@@ -227,14 +298,18 @@ def handle_user_input(state: ExecutionState) -> ExecutionState:
             else:
                 print("Please enter 'y' or 'n'")
 
+        # Store user input with context
         if 'user_inputs' not in state["memory"]:
             state["memory"]['user_inputs'] = []
         state["memory"]['user_inputs'].append({
             'prompt': prompt,
             'response': user_response,
+            'context': state["current_files"],  # Store current file context
             'timestamp': datetime.now().isoformat()
         })
         
+        # Reset iteration count to ensure changes are applied
+        state["iteration_count"] = 1
         state["code_query_decision"] = "execute"
         
     except Exception as e:
@@ -243,13 +318,13 @@ def handle_user_input(state: ExecutionState) -> ExecutionState:
     
     return state
 
-def create_execution_graph(forge_interface, rag_utils):
+def create_execution_graph():
     """Creates the execution workflow graph."""
     workflow = StateGraph(ExecutionState)
     
     # Add nodes
-    workflow.add_node("execute", lambda s: code_executor(s, forge_interface))
-    workflow.add_node("review", review_code)
+    workflow.add_node("execute", code_executor)
+    workflow.add_node("review", code_reviewer)
     workflow.add_node("rag", query_rag)
     workflow.add_node("user", handle_user_input)
     
@@ -286,27 +361,34 @@ def create_execution_graph(forge_interface, rag_utils):
     
     return workflow.compile()
 
-def start_execution_agent(planning_state: dict, forge_interface, rag_utils: Optional[RAGUtils] = None) -> dict:
-    """Start the execution agent with the graph-based workflow."""
-    logger.info("Starting execution agent")
+def start_execution_agent(
+    planning_state: dict,
+    forge=None,
+    rag_utils: Optional[RAGUtils] = None,
+    max_iterations: int = 5
+) -> dict:
+    """Start the execution agent."""
+    print("\n=== Starting Execution Agent ===")
     
-    # Initialize state with proper message type
     initial_state = ExecutionState(
         messages=[SystemMessage(content="Starting execution process")],
-        memory={},
-        implementation_plan=planning_state.get('implementation_plan', ''),
-        repo_path=planning_state.get('repo_path', ''),
+        memory={
+            'forge': forge,
+            'rag_utils': rag_utils
+        },
+        implementation_plan=planning_state["implementation_plan"],
+        repo_path=planning_state["repo_path"],
+        files_to_edit=planning_state["files_to_edit"],
         code_execution_output="",
         iteration_count=1,
-        max_iterations=5,
+        max_iterations=max_iterations,
         validation_ready=False,
         current_files={},
         code_query_decision="execute",
         rag_utils=rag_utils
     )
     
-    # Create and run the workflow
-    workflow = create_execution_graph(forge_interface, rag_utils)
+    workflow = create_execution_graph()
     final_state = workflow.invoke(initial_state)
     
     return final_state

@@ -60,7 +60,7 @@ class ForgeInterface:
                 raise Exception("Failed to set code mode")
 
             response = await self.subprocess_handler.send_command(command, current_mode='code')
-            await self.subprocess_handler.send_command("/commit", current_mode='code')
+            await self.subprocess_handler.send_command(" /commit", current_mode='code')
             cleaned_response = strip_ansi_codes(response)
             cleaned_response = remove_consecutive_duplicates(cleaned_response)
             logger.debug(f"forge response: {cleaned_response}")

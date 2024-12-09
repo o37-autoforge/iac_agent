@@ -4,24 +4,22 @@ import logging
 import subprocess
 from pathlib import Path
 from dotenv import load_dotenv
-import importlib.util
-import sys
-from continuous_setup import start_continuous_setup
+from continuous_setup import start_continuous_setup, clone_repository
 from planning_agent import start_planning
 from execution_agent import start_execution_agent
 from validation_agent import start_validation_agent
 from utils.forge_interface import ForgeInterface
 from utils.subprocess_handler import SubprocessHandler
-import asyncio
 import urllib3
-import json
 from utils.rag_utils import RAGUtils
 from application_agent import start_application_agent
 from typing import Optional
-import requests  # Add this import for GitHub API
 from datetime import datetime
 from github import Github
 from github.GithubException import GithubException
+from forge.forge_wrapper import ForgeWrapper
+import traceback
+import git
 
 # Disable HTTP request logging
 urllib3.disable_warnings()
@@ -35,6 +33,7 @@ logging.basicConfig(
     format='%(asctime)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+logger = logging.getLogger(__name__)
 
 def get_user_pipeline_config():
     """Get user's desired pipeline configuration and include prerequisite stages"""
@@ -64,9 +63,9 @@ def get_user_pipeline_config():
         except ValueError:
             print("Please enter a single number (1-4)")
 
-def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_states: dict = None):
+def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_states: dict = None, forge: ForgeWrapper = None):
     """
-    Orchestrates the pipeline with configurable stages.
+    Orchestrate the execution of the pipeline stages based on user configuration.
     """
     try:
         # Initialize states from persistent states if available
@@ -76,37 +75,53 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
         validation_state = persistent_states.get('validation_state') if persistent_states else None
         application_state = None
         
-        # Get planning file path from environment
-        planning_file_path = os.getenv('PLANNING_FILE_PATH')
-        if not planning_file_path:
-            # Fallback to default path
-            planning_file_path = os.path.join(repo_path, "planning", "implementation_plan.txt")
-            
-        # Ensure planning directory exists
-        os.makedirs(os.path.dirname(planning_file_path), exist_ok=True)
+        # Clone repository if it doesn't exist
+        if not os.path.exists(repo_path):
+            print("\nCloning repository...")
+            repo_path = clone_repository()
+            print(f"Repository cloned to: {repo_path}")
         
-        # Get handlers from setup state
-        if setup_state:
-            subprocess_handler = setup_state['subprocess_handler']
-            forge_interface = setup_state['forge_interface']
+        # Get the actual git root path
+        try:
+            repo = git.Repo(repo_path, search_parent_directories=True)
+            git_root = repo.git.rev_parse("--show-toplevel")
+        except git.InvalidGitRepositoryError:
+            print(f"Error: {repo_path} is not a valid git repository")
+            raise
+        
+        # Ensure we have a forge instance
+        if not forge:
+            forge = ForgeWrapper(
+                git_root=git_root,
+                model="gpt-4o",
+                verbose=False,
+                stream=False,
+                auto_commit=False
+            )
+        
+        # Run setup if enabled or if we don't have a setup state
+        if run_stages.get('setup') or not setup_state:
+            print("\nStarting setup phase...")
+            setup_state = start_continuous_setup(repo_path)
+            
+            # Store setup state
+            if persistent_states is not None:
+                persistent_states['setup_state'] = setup_state
         
         # Run planning if enabled
         if run_stages.get('planning'):
             print("\nStarting planning phase...")
-            if not setup_state:
-                raise ValueError("Setup state required for planning")
             planning_state = start_planning(
                 repo_path=repo_path,
                 codebase_overview=setup_state.get('codebase_overview', ''),
                 file_tree=setup_state.get('file_tree', ''),
                 file_descriptions=setup_state.get('file_descriptions', {}),
-                subprocess_handler=subprocess_handler,
-                forge_interface=forge_interface,
-                planning_file_path=planning_file_path  # Pass the planning file path
+                forge=forge
             )
-            # Add repo_path to planning state
-            planning_state['repo_path'] = repo_path
-            planning_state['planning_file_path'] = planning_file_path  # Store the path
+            
+            # Store planning state
+            if persistent_states is not None:
+                persistent_states['planning_state'] = planning_state
         
         # Run execution if enabled
         if run_stages.get('execution'):
@@ -116,9 +131,6 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
             
             # Initialize RAG utils
             rag_utils = RAGUtils(repo_path) if os.path.exists(repo_path) else None
-            
-            # Ensure forge is started with clean context
-            subprocess_handler.start_forge(os.getenv("OPENAI_API_KEY"), [])
             
             # Get planning file path from state or environment
             planning_file_path = planning_state.get('planning_file_path') or os.getenv('PLANNING_FILE_PATH')
@@ -132,38 +144,16 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
             with open(planning_file_path, "r") as f:
                 planning_state["implementation_plan"] = f.read()
             
-            # Add files to forge context one at a time
-            if planning_state.get("files_to_edit"):
-                print("\nAdding files to forge context...")
-                
-                for file_path in planning_state["files_to_edit"]:
-                    full_path = os.path.join(repo_path, file_path)
-                    if os.path.exists(full_path):
-                        try:
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            try:
-                                result = loop.run_until_complete(
-                                    forge_interface.add_file_to_context(file_path)
-                                )
-                                if result:
-                                    print(f"Successfully added {file_path} to forge context")
-                                else:
-                                    print(f"Failed to add {file_path} to forge context")
-                            finally:
-                                loop.close()
-                        except Exception as e:
-                            print(f"Error adding {file_path} to forge context: {str(e)}")
-            
-            # Ensure repo_path is in planning state
-            planning_state['repo_path'] = repo_path
-            
-            # Start execution agent with RAG utils
+            # Start execution agent with RAG utils and forge
             execution_state = start_execution_agent(
                 planning_state=planning_state,
-                forge_interface=forge_interface,
+                forge=forge,
                 rag_utils=rag_utils
             )
+            
+            # Store execution state
+            if persistent_states is not None:
+                persistent_states['execution_state'] = execution_state
         
         # Run validation if enabled
         if run_stages.get('validation'):
@@ -171,27 +161,32 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
                 print("\nStarting validation phase...")
                 validation_state = start_validation_agent(
                     implementation_plan=planning_state['implementation_plan'],
-                    forge_interface=forge_interface,
+                    forge=forge,
                     repo_path=repo_path,
                     execution_state=execution_state
                 )
+                
+                # Store validation state
+                if persistent_states is not None:
+                    persistent_states['validation_state'] = validation_state
         
-        # Run application if enabled (replaces finalization)
+        # Run application if enabled
         if run_stages.get('application'):
             if validation_state and validation_state.get('validation_status') == 'end':
                 print("\nStarting application phase...")
                 application_state = start_application_agent(
                     implementation_plan=planning_state['implementation_plan'],
-                    forge_interface=forge_interface,
+                    forge=forge,
                     repo_path=repo_path,
                     rag_utils=rag_utils
                 )
                 
                 # Store application state
-                persistent_states['application_state'] = application_state
+                if persistent_states is not None:
+                    persistent_states['application_state'] = application_state
             else:
                 print("\nValidation not completed successfully. Skipping application phase.")
-
+        
         # After all stages are complete, handle git operations
         if any(run_stages.values()):  # If any stage was run
             print("\nWould you like to commit and push the changes? (y/n)")
@@ -367,85 +362,60 @@ def handle_git_operations(repo_path: str, branch_name: Optional[str] = None) -> 
         return {"status": "error", "error": str(e)}
 
 def main():
-    load_dotenv()
-    repo_path = os.getenv("REPO_PATH")
-    if not repo_path:
-        raise ValueError("REPO_PATH not found in .env file")
-    
+    """Main entry point for the pipeline"""
     try:
-        # First run continuous setup
+        # Load environment variables
+        load_dotenv()
+        
+        # Get repo path from environment
+        repo_path = os.getenv('REPO_PATH')
+        if not repo_path:
+            raise ValueError("REPO_PATH not found in .env file")
+        
+        # Start continuous setup
         print("\nStarting continuous setup...")
         setup_state = start_continuous_setup(repo_path)
-        subprocess_handler = setup_state['subprocess_handler']
-        forge_interface = setup_state['forge_interface']
+        
+        # Initialize ForgeWrapper
+        forge = ForgeWrapper(
+            git_root=repo_path,
+            model="gpt-4o",
+            verbose=False,
+            stream=False,
+            auto_commit=False
+        )
+        
+        # Store states between iterations
+        persistent_states = {
+            'setup_state': setup_state
+        }
         
         print("\nContinuous setup complete. Starting interactive pipeline mode.")
         
-        # Store states that need to persist between iterations
-        persistent_states = {
-            'setup_state': setup_state,
-            'planning_state': None,
-            'execution_state': None,
-            'validation_state': None,
-            'application_state': None
-        }
-        
-        # Run pipeline stages in a loop
         while True:
-            try:
-                # Get user's desired pipeline configuration
-                run_stages = get_user_pipeline_config()
-                
-                # Add setup state to run_stages
-                run_stages['setup'] = False  # Setup already done
-                
+            # Get user's desired pipeline configuration
+            run_stages = get_user_pipeline_config()
+            
+            if run_stages:
                 print("\nStarting pipeline with selected stages...")
-                                
-                # Run the pipeline with current stages and persistent states
-                final_state = orchestrate_pipeline(
+                orchestrate_pipeline(
                     repo_path=repo_path,
                     run_stages=run_stages,
-                    persistent_states=persistent_states
+                    persistent_states=persistent_states,
+                    forge=forge
                 )
+            else:
+                print("\nExiting pipeline.")
+                break
                 
-                # Update persistent states with any new states
-                for key in persistent_states:
-                    if key in final_state and final_state[key] is not None:
-                        persistent_states[key] = final_state[key]
-                
-                print("\nPipeline execution complete.")
-                print("=" * 80)
-                
-                # Ask if user wants to run another iteration
-                while True:
-                    continue_input = input("\nWould you like to run another pipeline iteration? (y/n): ").lower()
-                    if continue_input in ['y', 'n']:
-                        break
-                    print("Please enter 'y' or 'n'")
-                
-                if continue_input == 'n':
-                    print("\nExiting pipeline...")
-                    break
-                    
-            except KeyboardInterrupt:
-                print("\nPipeline iteration interrupted by user.")
-                if input("\nWould you like to exit? (y/n): ").lower() == 'y':
-                    break
-            except Exception as e:
-                print(f"\nError during pipeline iteration: {str(e)}")
-                if input("\nWould you like to try another iteration? (y/n): ").lower() == 'n':
-                    break
-        
-        # Cleanup
-        if setup_state and setup_state.get('observer'):
-            setup_state['observer'].stop()
-        if setup_state and setup_state.get('subprocess_handler'):
-            setup_state['subprocess_handler'].close_forge()
-            
+    except KeyboardInterrupt:
+        print("\nPipeline interrupted by user.")
     except Exception as e:
-        logging.error(f"Error during pipeline orchestration: {str(e)}")
+        print(f"\nError during pipeline orchestration: {str(e)}")
+        traceback.print_exc()
         raise
 
 if __name__ == "__main__":
     main()
 
+ 

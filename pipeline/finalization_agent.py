@@ -272,63 +272,85 @@ def step_verifier(state: FinalizationState) -> dict:
     return state
 
 def error_handler(state: FinalizationState) -> dict:
-    """Handles errors in finalization steps."""
+    """Handle errors during finalization."""
     
-    prompt = f"""As an Infrastructure as Code expert, analyze and fix this infrastructure error.
+    if state['iteration_count'] >= state['max_iterations']:
+        logging.warning("Max iterations reached - ending finalization")
+        state['finalization_status'] = 'END'
+        return state
     
-    Step Type: {state['memory']['step_history'][-1]['type']}
-    Command: {state['current_step']}
-    Output: {state['step_output']}
-    Detected Errors: {state['detected_errors']}
+    state['iteration_count'] += 1
     
-    Previous Attempts:
-    {state['memory'].get('error_fixes', [])}
+    error_prompt = f"""As an Infrastructure as Code expert, analyze this error and suggest a fix:
     
-    Infrastructure Applied: {state['memory'].get('infrastructure_applied', False)}
+    Step: {state['current_step']}
+    Error: {state['step_output']}
     
-    Generate a solution to fix these issues.
-    If this is an infrastructure apply error, prioritize fixing the terraform configuration.
+    Previous Steps:
+    {state['memory'].get('step_history', [])}
+    
+    Suggest a fix that:
+    1. Addresses the root cause
+    2. Follows IaC best practices
+    3. Maintains security
+    4. Preserves existing configuration
+    5. Can be applied safely
     
     Output in JSON format:
-    - fix_type: One of ['retry', 'alternative', 'rollback', 'manual']
-    - fix_command: The command to run (if applicable)
-    - description: Description of the fix
-    - requires_apply: true if this fix applies infrastructure changes
+    - error_type: Type of error encountered
+    - fix_description: Detailed description of the fix
+    - code_changes_needed: Whether code changes are required
+    - suggested_command: Modified command to try
     """
     
-    class ErrorFixSchema(BaseModel):
-        fix_type: Literal['retry', 'alternative', 'rollback', 'manual']
-        fix_command: Optional[str]
-        description: str
-        requires_apply: bool
+    class ErrorAnalysis(BaseModel):
+        error_type: str
+        fix_description: str
+        code_changes_needed: bool
+        suggested_command: str
     
     try:
-        fix = llm.with_structured_output(ErrorFixSchema).invoke(prompt)
+        analysis = llm.with_structured_output(ErrorAnalysis).invoke(error_prompt)
         
-        # Store error fix attempt
-        if 'error_fixes' not in state['memory']:
-            state['memory']['error_fixes'] = []
-        state['memory']['error_fixes'].append({
-            'errors': state['detected_errors'],
-            'fix_type': fix.fix_type,
-            'fix_command': fix.fix_command,
-            'description': fix.description,
-            'requires_apply': fix.requires_apply,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        if fix.fix_type == 'manual':
-            state['finalization_status'] = 'END'
-            state['messages'].append(SystemMessage(content=f"Manual intervention required: {fix.description}"))
+        if analysis.code_changes_needed:
+            forge_wrapper = state['memory'].get('forge_wrapper')
+            if forge_wrapper:
+                # Use ForgeWrapper to apply code changes
+                result = forge_wrapper.chat(analysis.fix_description)
+                
+                # Check if we got an EditResult
+                if hasattr(result, 'files_changed'):
+                    print(f"Files changed: {', '.join(result.files_changed)}")
+                    if result.diff:
+                        print(f"Changes made:\n{result.diff}")
+                    state['step_output'] = f"Changed files: {', '.join(result.files_changed)}"
+                else:
+                    state['step_output'] = str(result)
+                
+                # Store the fix attempt
+                state['memory'].setdefault('fix_attempts', []).append({
+                    'error_type': analysis.error_type,
+                    'fix_description': analysis.fix_description,
+                    'files_changed': result.files_changed if hasattr(result, 'files_changed') else [],
+                    'output': state['step_output'],
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+                # Try the suggested command
+                state['current_step'] = analysis.suggested_command
+                state['finalization_status'] = 'Execute'
+            else:
+                logging.error("No forge wrapper available for code changes")
+                state['finalization_status'] = 'END'
         else:
-            state['current_step'] = fix.fix_command
+            # Just try the suggested command
+            state['current_step'] = analysis.suggested_command
             state['finalization_status'] = 'Execute'
-            state['messages'].append(SystemMessage(content=f"Attempting fix: {fix.description}"))
-        
+            
     except Exception as e:
-        logging.error(f"Error handling failed: {e}")
+        logging.error(f"Error handler failed: {e}")
         state['finalization_status'] = 'END'
-        
+    
     return state
 
 def create_finalization_graph():
@@ -383,30 +405,33 @@ def create_finalization_graph():
     
     return workflow.compile()
 
-def start_finalization_agent(implementation_plan: str) -> dict:
-    """Starts the finalization agent."""
+def start_finalization_agent(
+    implementation_plan: str,
+    repo_path: str,
+    forge_wrapper=None,
+    max_iterations: int = 10
+) -> dict:
+    """Start the finalization agent."""
     
-    app = create_finalization_graph()
-    
-    # Initialize state
     initial_state = FinalizationState(
-        messages=[],
+        messages=[SystemMessage(content="Starting finalization process")],
         implementation_plan=implementation_plan,
         current_step=None,
         step_output=None,
         finalization_status=None,
         detected_errors=None,
         iteration_count=0,
-        max_iterations=10,
-        memory={},
-        git_context={}
+        max_iterations=max_iterations,
+        memory={
+            'forge_wrapper': forge_wrapper,
+            'infrastructure_applied': False,
+            'step_history': [],
+            'execution_results': []
+        },
+        git_context=None
     )
     
-    # Initialize memory components
-    memory_keys = ['step_history', 'execution_results', 'verifications', 'error_fixes']
-    for key in memory_keys:
-        initial_state['memory'][key] = []
+    workflow = create_finalization_graph()
+    final_state = workflow.invoke(initial_state)
     
-    # Start the workflow
-    final_state = app.invoke(initial_state)
     return final_state 
