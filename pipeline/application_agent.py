@@ -174,40 +174,47 @@ def verify_changes(state: ApplicationState) -> ApplicationState:
     matches_expected = clean_expected.lower() in clean_output.lower()
     has_warnings = "warning" in clean_output.lower()
     
-    print(f"Success check: {success}")
-    print(f"Expected output match: {matches_expected}")
-    print(f"Has warnings: {has_warnings}")
+    # If we've reached max attempts for this command, give user options
+    if state["command_attempts"] >= state["max_attempts"]:
+        print(f"\nMaximum attempts ({state['max_attempts']}) reached for current command.")
+        print(f"Command: {state['current_command']['command']}")
+        print(f"Current output: {clean_output}")
+        print("\nOptions:")
+        print("1: Skip remaining commands and end application")
+        print("2: Skip this command and move to next")
+        print("3: Edit command manually and continue")
+        
+        while True:
+            choice = input("Enter your choice (1-3): ").strip()
+            if choice == "1":
+                print("Skipping remaining commands...")
+                state["application_status"] = "end"
+                return state
+            elif choice == "2":
+                print("Skipping to next command...")
+                state["application_status"] = "next"
+                return state
+            elif choice == "3":
+                print("\nCurrent command:")
+                print(state["current_command"]["command"])
+                new_command = input("Enter modified command (or press Enter to keep current): ").strip()
+                if new_command:
+                    state["current_command"]["command"] = new_command
+                    state["command_attempts"] = 0  # Reset attempts for the modified command
+                    state["application_status"] = "execute"
+                    return state
+            else:
+                print("Please enter 1, 2, or 3")
     
     if success and matches_expected:
         print("Changes applied successfully")
         state["application_status"] = "next"
     else:
-        if state["command_attempts"] >= state["max_attempts"]:
-            print(f"\nMaximum attempts ({state['max_attempts']}) reached.")
-            print("Would you like to:")
-            print("1: Continue anyway")
-            print("2: Rollback changes")
-            print("3: Get help")
-            choice = input("Enter choice (1-3): ").strip()
-            
-            if choice == "1":
-                state["application_status"] = "next"
-            elif choice == "2":
-                state["application_status"] = "rollback"
-            else:
-                print("\nPrevious attempts:")
-                for attempt in state["memory"].get("fix_attempts", []):
-                    print(f"\nAttempt at {attempt['timestamp']}:")
-                    print(f"Output: {attempt['output']}")
-                if input("\nWould you like to continue? (y/n): ").lower() == 'y':
-                    state["application_status"] = "next"
-                else:
-                    state["application_status"] = "rollback"
-        else:
-            state["command_attempts"] += 1
-            state["total_attempts"] += 1
-            print(f"Verification failed - Retrying (Attempt {state['command_attempts']}/{state['max_attempts']})")
-            state["application_status"] = "execute"
+        print(f"Verification failed - Attempting fix (Attempt {state['command_attempts'] + 1}/{state['max_attempts']})")
+        state["command_attempts"] += 1
+        state["total_attempts"] += 1
+        state["memory"]["fix_query"] = f"Fix this error: {clean_output}"
+        state["application_status"] = "rollback"
     
     return state
 
@@ -332,7 +339,13 @@ def start_application_agent(
 ) -> dict:
     """Start the application agent."""
     print("\n=== Starting Application Agent ===")
-    print(f"Repo path: {repo_path}")
+    
+    # Create planning directory if it doesn't exist
+    planning_dir = os.path.join(repo_path, "planning")
+    os.makedirs(planning_dir, exist_ok=True)
+    
+    # Path for application commands JSON
+    application_commands_path = os.path.join(planning_dir, "application_commands.json")
     
     commands_prompt = f"""
     Generate a list of commands to apply the Terraform changes.
@@ -362,28 +375,49 @@ def start_application_agent(
     print("\nGenerating application commands...")
     commands = llm.with_structured_output(CommandList).invoke(commands_prompt)
     
-    print("\nProposed application commands:")
-    for i, cmd in enumerate(commands.commands, 1):
-        clean_cmd = clean_ansi_escape_sequences(cmd.command)
-        clean_purpose = clean_ansi_escape_sequences(cmd.purpose)
-        clean_output = clean_ansi_escape_sequences(cmd.expected_output)
-        
-        print(f"\n{i}. Command: {clean_cmd}")
-        print(f"   Purpose: {clean_purpose}")
-        print(f"   Expected Output: {clean_output}")
+    # Convert commands to JSON and save to file
+    commands_json = json.dumps([{
+        "command": cmd.command,
+        "purpose": cmd.purpose,
+        "expected_output": cmd.expected_output
+    } for cmd in commands.commands], indent=2)
     
-    print("\nWould you like to proceed with these commands? (y/n)")
-    if input().lower() != 'y':
-        print("Aborting application...")
-        return {"application_status": "aborted"}
+    with open(application_commands_path, 'w') as f:
+        f.write(commands_json)
+    
+    print(f"\nApplication commands have been written to: {application_commands_path}")
+    print("You can now review and modify the commands if needed.")
+    print("Press 'y' when you're done editing, or 'n' to use as-is.")
+    
+    while True:
+        choice = input("Would you like to edit the commands? (y/n): ").lower()
+        if choice == 'y':
+            input("Edit the file and press Enter when done...")
+            try:
+                # Read potentially modified commands
+                with open(application_commands_path, 'r') as f:
+                    edited_json = json.load(f)
+                # Validate the structure
+                commands = CommandList(commands=[Command(**cmd) for cmd in edited_json])
+                print("\nApplication commands updated successfully!")
+                break
+            except Exception as e:
+                print(f"\nError in JSON format: {str(e)}")
+                print("Please fix the JSON format and try again.")
+        elif choice == 'n':
+            break
+        else:
+            print("Please enter 'y' or 'n'")
     
     initial_state = ApplicationState(
         messages=[SystemMessage(content="Starting application process")],
         memory={
             "commands": [cmd.dict() for cmd in commands.commands],
+            "original_commands": commands.commands,
             "executed_commands": [],
             "forge_interface": forge_interface,
-            "rag_utils": rag_utils
+            "rag_utils": rag_utils,
+            "application_commands_path": application_commands_path
         },
         implementation_plan=implementation_plan,
         repo_path=repo_path,
@@ -398,6 +432,6 @@ def start_application_agent(
     )
     
     workflow = create_application_graph()
-    final_state = workflow.invoke(initial_state)
+    final_state = workflow.invoke(initial_state, config=config)
     
     return final_state 

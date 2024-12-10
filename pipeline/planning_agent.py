@@ -15,10 +15,12 @@ import re
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.ERROR,
     format='%(asctime)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+# Disable all logging levels
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 
@@ -538,7 +540,7 @@ if __name__ == "__main__":
     )
     
     # Print the implementation plan
-    print("\nImplementation Plan:")
-    print("=" * 80)
-    print(final_state["implementation_plan"])
-    print("=" * 80) 
+    # print("\nImplementation Plan:")
+    # print("=" * 80)
+    # print(final_state["implementation_plan"])
+    # print("=" * 80) 

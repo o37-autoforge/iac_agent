@@ -39,11 +39,11 @@ def clone_repository():
     repo_path = os.getenv('REPO_PATH')
     github_token = os.getenv('GITHUB_TOKEN')
     
-    print("\nChecking repository configuration:")
-    print(f"REPO_URL: {repo_url}")
-    print(f"BRANCH_NAME: {repo_branch}")
-    print(f"REPO_PATH: {repo_path}")
-    print(f"GITHUB_TOKEN: {'Set' if github_token else 'Not Set'}")
+    # print("\nChecking repository configuration:")
+    # print(f"REPO_URL: {repo_url}")
+    # print(f"BRANCH_NAME: {repo_branch}")
+    # print(f"REPO_PATH: {repo_path}")
+    # print(f"GITHUB_TOKEN: {'Set' if github_token else 'Not Set'}")
     
     if not repo_url:
         raise ValueError("REPO_URL not found in .env file")
@@ -53,14 +53,14 @@ def clone_repository():
         raise ValueError("GITHUB_TOKEN not found in .env file")
     
     if os.path.exists(repo_path):
-        print(f"\nRemoving existing repo directory: {repo_path}")
+        # print(f"\nRemoving existing repo directory: {repo_path}")
         import shutil
         shutil.rmtree(repo_path)
     
     # Create parent directories if they don't exist
     os.makedirs(os.path.dirname(repo_path), exist_ok=True)
     
-    print(f"\nCloning repository from {repo_url} to {repo_path}")
+    # print(f"\nCloning repository from {repo_url} to {repo_path}")
     
     try:
         # Construct authenticated URL
@@ -69,15 +69,15 @@ def clone_repository():
         # Clone repository
         repo = git.Repo.clone_from(auth_url, repo_path)
         repo.git.checkout(repo_branch)
-        print("Repository cloned successfully!")
+        # print("Repository cloned successfully!")
         
         return repo_path
         
     except git.GitCommandError as e:
-        print(f"Error cloning repository: {str(e)}")
+        # print(f"Error cloning repository: {str(e)}")
         raise
     except Exception as e:
-        print(f"Unexpected error during cloning: {str(e)}")
+        # print(f"Unexpected error during cloning: {str(e)}")
         raise
 
 class CodeAnalyzer:
@@ -331,10 +331,10 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
         
         # Ensure analysis directory exists
         os.makedirs(self.analysis_dir, exist_ok=True)
-        print(f"Initialized analysis directory at: {self.analysis_dir}")
+        # print(f"Initialized analysis directory at: {self.analysis_dir}")
         
         # Initial analysis of all files
-        print("\nStarting initial analysis of codebase...")
+        # print("\nStarting initial analysis of codebase...")
         self.update_all_overviews()
 
     def update_file_overview(self, file_path):
@@ -353,7 +353,7 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
                 
                 with open(analysis_file, 'w') as f:
                     f.write(analysis)
-                print(f"Updated analysis for: {relative_path}")
+                # print(f"Updated analysis for: {relative_path}")
                 
         except Exception as e:
             logger.error(f"Error analyzing file {file_path}: {str(e)}")
@@ -379,7 +379,7 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
             tree_path = os.path.join(self.analysis_dir, 'file_tree.txt')
             with open(tree_path, 'w') as f:
                 f.write('\n'.join(tree))
-            print("Updated file tree")
+            # print("Updated file tree")
             
             # Generate codebase overview using file tree and existing analyses
             file_descriptions = self.get_file_descriptions()
@@ -413,14 +413,14 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
             overview_path = os.path.join(self.analysis_dir, 'codebase_overview.txt')
             with open(overview_path, 'w') as f:
                 f.write(overview)
-            print("Updated codebase overview")
+            # print("Updated codebase overview")
         except Exception as e:
             logger.error(f"Error updating codebase overview: {str(e)}")
             raise
 
     def update_all_overviews(self):
         """Update all file and codebase overviews"""
-        print("Starting initial analysis of all files...")
+        # print("Starting initial analysis of all files...")
         
         # Update individual file overviews first
         for root, _, files in os.walk(self.repo_path):
@@ -432,9 +432,9 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
                     self.update_file_overview(file_path)
         
         # Update codebase overview after all files are analyzed
-        print("Generating codebase overview...")
+        # print("Generating codebase overview...")
         self.update_codebase_overview()
-        print("Completed initial analysis")
+        # print("Completed initial analysis")
 
     def is_repo_file(self, file_path):
         """Check if a file is a repository file (not in excluded directories)"""
@@ -443,19 +443,16 @@ class CodebaseOverviewHandler(FileSystemEventHandler):
 
     def on_modified(self, event):
         if not event.is_directory and self.is_repo_file(event.src_path):
-            print(f"\nFile modified: {os.path.relpath(event.src_path, self.repo_path)}")
             self.update_file_overview(event.src_path)
             self.update_codebase_overview()
 
     def on_created(self, event):
         if not event.is_directory and self.is_repo_file(event.src_path):
-            print(f"\nNew file created: {os.path.relpath(event.src_path, self.repo_path)}")
             self.update_file_overview(event.src_path)
             self.update_codebase_overview()
 
     def on_deleted(self, event):
         if not event.is_directory and self.is_repo_file(event.src_path):
-            print(f"\nFile deleted: {os.path.relpath(event.src_path, self.repo_path)}")
             relative_path = os.path.relpath(event.src_path, self.repo_path)
             analysis_file = os.path.join(self.analysis_dir, f"{relative_path}.analysis")
             if os.path.exists(analysis_file):
@@ -497,14 +494,14 @@ def start_continuous_setup(repo_path: str) -> dict:
     try:
         # Clone repository if it doesn't exist
         if not os.path.exists(repo_path):
-            print("\nCloning repository...")
+            # print("\nCloning repository...")
             repo_path = clone_repository()
-            print(f"Repository cloned to: {repo_path}")
+            # print(f"Repository cloned to: {repo_path}")
         
         # Create analysis directory
         analysis_dir = os.path.join(repo_path, 'analysis')
         os.makedirs(analysis_dir, exist_ok=True)
-        print(f"\nCreated analysis directory at: {analysis_dir}")
+        # print(f"\nCreated analysis directory at: {analysis_dir}")
         
         # Initialize file watcher with LLM instances
         event_handler = CodebaseOverviewHandler(repo_path, llm=llm, gemini_llm=gemini_llm)
@@ -514,11 +511,11 @@ def start_continuous_setup(repo_path: str) -> dict:
         
         # Wait for initial analysis to complete
         while not os.path.exists(os.path.join(analysis_dir, 'codebase_overview.txt')):
-            print("Analyzing codebase...")
+            # print("Analyzing codebase...")
             time.sleep(2)
         
-        print("\nInitial analysis complete!")
-        print("Now monitoring for file changes...")
+        # print("\nInitial analysis complete!")
+        # print("Now monitoring for file changes...")
         
         # Return state with analysis results
         return {

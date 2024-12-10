@@ -96,7 +96,8 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
                 model="gpt-4o",
                 verbose=False,
                 stream=False,
-                auto_commit=False
+                auto_commit=False,
+                log_level="CRITICAL"
             )
         
         # Run setup if enabled or if we don't have a setup state
@@ -110,7 +111,7 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
         
         # Run planning if enabled
         if run_stages.get('planning'):
-            print("\nStarting planning phase...")
+            # print("\nStarting planning phase...")
             planning_state = start_planning(
                 repo_path=repo_path,
                 codebase_overview=setup_state.get('codebase_overview', ''),
@@ -127,7 +128,7 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
         if run_stages.get('execution'):
             if not planning_state:
                 raise ValueError("Planning state required for execution")
-            print("\nStarting execution phase...")
+            # print("\nStarting execution phase...")
             
             # Initialize RAG utils
             rag_utils = RAGUtils(repo_path) if os.path.exists(repo_path) else None
@@ -157,35 +158,35 @@ def orchestrate_pipeline(repo_path: str, run_stages: dict = None, persistent_sta
         
         # Run validation if enabled
         if run_stages.get('validation'):
-            if execution_state and execution_state.get('code_query_decision') == 'END':
-                print("\nStarting validation phase...")
-                validation_state = start_validation_agent(
-                    implementation_plan=planning_state['implementation_plan'],
-                    forge=forge,
-                    repo_path=repo_path,
-                    execution_state=execution_state
-                )
-                
-                # Store validation state
-                if persistent_states is not None:
-                    persistent_states['validation_state'] = validation_state
+            # Remove the execution state check since validation should run regardless
+            validation_state = start_validation_agent(
+                implementation_plan=planning_state['implementation_plan'],
+                repo_path=repo_path,
+                forge=forge,
+                max_attempts=3,
+                max_total_attempts=15
+            )
+            
+            # Store validation state
+            if persistent_states is not None:
+                persistent_states['validation_state'] = validation_state
         
         # Run application if enabled
         if run_stages.get('application'):
-            if validation_state and validation_state.get('validation_status') == 'end':
-                print("\nStarting application phase...")
-                application_state = start_application_agent(
+            application_state = start_application_agent(
                     implementation_plan=planning_state['implementation_plan'],
-                    forge=forge,
                     repo_path=repo_path,
-                    rag_utils=rag_utils
-                )
+                    forge_interface=forge,
+                    rag_utils=rag_utils,
+                    max_attempts=3,
+                    max_total_attempts=15
+            )
                 
                 # Store application state
-                if persistent_states is not None:
-                    persistent_states['application_state'] = application_state
-            else:
-                print("\nValidation not completed successfully. Skipping application phase.")
+            if persistent_states is not None:
+                persistent_states['application_state'] = application_state
+        else:
+            print("\nValidation not completed successfully. Skipping application phase.")
         
         # After all stages are complete, handle git operations
         if any(run_stages.values()):  # If any stage was run
@@ -373,7 +374,7 @@ def main():
             raise ValueError("REPO_PATH not found in .env file")
         
         # Start continuous setup
-        print("\nStarting continuous setup...")
+        # print("\nStarting continuous setup...")
         setup_state = start_continuous_setup(repo_path)
         
         # Initialize ForgeWrapper
@@ -382,7 +383,8 @@ def main():
             model="gpt-4o",
             verbose=False,
             stream=False,
-            auto_commit=False
+            auto_commit=False,
+            log_level="CRITICAL"
         )
         
         # Store states between iterations
@@ -390,14 +392,14 @@ def main():
             'setup_state': setup_state
         }
         
-        print("\nContinuous setup complete. Starting interactive pipeline mode.")
+        # print("\nContinuous setup complete. Starting interactive pipeline mode.")
         
         while True:
             # Get user's desired pipeline configuration
             run_stages = get_user_pipeline_config()
             
             if run_stages:
-                print("\nStarting pipeline with selected stages...")
+                # print("\nStarting pipeline with selected stages...")
                 orchestrate_pipeline(
                     repo_path=repo_path,
                     run_stages=run_stages,
@@ -405,11 +407,12 @@ def main():
                     forge=forge
                 )
             else:
-                print("\nExiting pipeline.")
+                # print("\nExiting pipeline.")
                 break
                 
     except KeyboardInterrupt:
         print("\nPipeline interrupted by user.")
+        raise
     except Exception as e:
         print(f"\nError during pipeline orchestration: {str(e)}")
         traceback.print_exc()

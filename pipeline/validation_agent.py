@@ -13,11 +13,19 @@ from utils.rag_utils import RAGUtils
 from dotenv import load_dotenv
 import asyncio
 import re
+from langchain_core.runnables.config import RunnableConfig
+config = RunnableConfig(recursion_limit=100)
 
 # Load environment variables
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+# Disable all logging levels
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 llm = ChatOpenAI(model="gpt-4o", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -166,18 +174,37 @@ def review_output(state: ValidationState) -> ValidationState:
     has_warnings = "warning" in clean_output.lower()
     has_error = "error" in clean_output.lower()
     
-    print(f"Success check: {success}")
-    print(f"Expected output match: {matches_expected}")
-    print(f"Has warnings: {has_warnings}")
-    print(f"Has errors: {has_error}")
-    print(f"Total attempts so far: {state['total_attempts']}/{state['max_total_attempts']}")
-    
-    # Check if we've exceeded total attempts
-    if state["total_attempts"] >= state["max_total_attempts"]:
-        print(f"\nMaximum total attempts ({state['max_total_attempts']}) reached across all commands.")
-        print("Moving to next command...")
-        state["validation_status"] = "next"
-        return state
+    # If we've reached max attempts for this command, give user options
+    if state["command_attempts"] >= state["max_attempts"]:
+        print(f"\nMaximum attempts ({state['max_attempts']}) reached for current command.")
+        print(f"Command: {state['current_command']['command']}")
+        print(f"Current output: {clean_output}")
+        print("\nOptions:")
+        print("1: Skip to application phase")
+        print("2: Skip this command and move to next")
+        print("3: Edit command manually and continue")
+        
+        while True:
+            choice = input("Enter your choice (1-3): ").strip()
+            if choice == "1":
+                print("Skipping to application phase...")
+                state["validation_status"] = "end"
+                return state
+            elif choice == "2":
+                print("Skipping to next command...")
+                state["validation_status"] = "next"
+                return state
+            elif choice == "3":
+                print("\nCurrent command:")
+                print(state["current_command"]["command"])
+                new_command = input("Enter modified command (or press Enter to keep current): ").strip()
+                if new_command:
+                    state["current_command"]["command"] = new_command
+                    state["command_attempts"] = 0  # Reset attempts for the modified command
+                    state["validation_status"] = "execute"
+                    return state
+            else:
+                print("Please enter 1, 2, or 3")
     
     # For terraform plan, don't try to fix output mismatches
     if "terraform plan" in state["current_command"]["command"]:
@@ -212,13 +239,6 @@ def review_output(state: ValidationState) -> ValidationState:
                 state["current_command"]["command"] = "terraform init -upgrade"
                 state["validation_status"] = "execute"
                 return state
-    
-    # If we've reached max attempts for this command, move on
-    if state["command_attempts"] >= state["max_attempts"]:
-        print(f"\nMaximum attempts ({state['max_attempts']}) reached for current command.")
-        print("Moving to next command...")
-        state["validation_status"] = "next"
-        return state
     
     # If everything is successful, move to next command
     if success and (matches_expected or "terraform plan" in state["current_command"]["command"]):
@@ -277,8 +297,8 @@ def apply_fix(state: ValidationState) -> ValidationState:
     append_state_update(state["repo_path"], "validation", "apply_fix", "Applying fixes to validation issues")
     print("\n=== Applying Fix ===")
     
-    forge_wrapper = state["memory"].get("forge_wrapper")
-    if not forge_wrapper:
+    forge = state["memory"].get("forge")
+    if not forge:
         print("ERROR: No forge wrapper available")
         state["validation_status"] = "next"
         return state
@@ -295,7 +315,7 @@ def apply_fix(state: ValidationState) -> ValidationState:
         print(f"Sending fix query to forge: {clean_query}")
         
         # Use ForgeWrapper to apply changes
-        result = forge_wrapper.chat(clean_query)
+        result = forge.chat(clean_query)
         
         # Check if we got an EditResult
         if hasattr(result, 'files_changed'):
@@ -379,10 +399,10 @@ def request_user_approval(state: ValidationState) -> ValidationState:
         
         # Send to forge wrapper
         try:
-            forge_wrapper = state["memory"].get("forge_wrapper")
-            if forge_wrapper:
+            forge= state["memory"].get("forge")
+            if forge:
                 print("Sending fix query to forge...")
-                result = forge_wrapper.chat(fix_query)
+                result = forge.chat(fix_query)
                 
                 # Check if we got an EditResult
                 if hasattr(result, 'files_changed'):
@@ -479,14 +499,18 @@ def start_validation_agent(
     implementation_plan: str,
     repo_path: str,
     forge=None,
-    execution_state=None,
     max_attempts: int = 3,
     max_total_attempts: int = 15
 ) -> dict:
     """Start the validation agent."""
     print("\n=== Starting Validation Agent ===")
-    print(f"Repo path: {repo_path}")
-    print(f"Implementation plan:\n{implementation_plan}")
+    
+    # Create planning directory if it doesn't exist
+    planning_dir = os.path.join(repo_path, "planning")
+    os.makedirs(planning_dir, exist_ok=True)
+    
+    # Path for validation commands JSON
+    validation_commands_path = os.path.join(planning_dir, "validation_commands.json")
     
     commands_prompt = f"""
     Generate a list of commands to validate this Terraform implementation WITHOUT making any changes to infrastructure.
@@ -523,38 +547,40 @@ def start_validation_agent(
     
     print("\nGenerating validation commands...")
     commands = llm.with_structured_output(CommandList).invoke(commands_prompt)
-    print("\nProposed validation commands:")
-    for i, cmd in enumerate(commands.commands, 1):
-        # Clean any potential formatting in the command details
-        clean_cmd = clean_ansi_escape_sequences(cmd.command)
-        clean_purpose = clean_ansi_escape_sequences(cmd.purpose)
-        clean_output = clean_ansi_escape_sequences(cmd.expected_output)
-        
-        print(f"\n{i}. Command: {clean_cmd}")
-        print(f"   Purpose: {clean_purpose}")
-        print(f"   Expected Output: {clean_output}")
     
-    print("\nWould you like to:")
-    print("1: Proceed with these commands")
-    print("2: Modify commands")
-    print("3: Add new commands")
-    choice = input("Enter your choice (1-3): ").strip()
+    # Convert commands to JSON and save to file
+    commands_json = json.dumps([{
+        "command": cmd.command,
+        "purpose": cmd.purpose,
+        "expected_output": cmd.expected_output
+    } for cmd in commands.commands], indent=2)
     
-    if choice == "2":
-        for i, cmd in enumerate(commands.commands):
-            print(f"\nCommand {i+1}: {cmd.command}")
-            if input("Modify this command? (y/n): ").lower() == 'y':
-                cmd.command = input("Enter new command: ").strip()
-                cmd.purpose = input("Enter purpose: ").strip()
-                cmd.expected_output = input("Enter expected output: ").strip()
-    elif choice == "3":
-        while input("\nAdd new command? (y/n): ").lower() == 'y':
-            new_cmd = Command(
-                command=input("Enter command: ").strip(),
-                purpose=input("Enter purpose: ").strip(),
-                expected_output=input("Enter expected output: ").strip()
-            )
-            commands.commands.append(new_cmd)
+    with open(validation_commands_path, 'w') as f:
+        f.write(commands_json)
+    
+    print(f"\nValidation commands have been written to: {validation_commands_path}")
+    print("You can now review and modify the commands if needed.")
+    print("Press 'y' when you're done editing, or 'n' to use as-is.")
+    
+    while True:
+        choice = input("Would you like to edit the commands? (y/n): ").lower()
+        if choice == 'y':
+            input("Edit the file and press Enter when done...")
+            try:
+                # Read potentially modified commands
+                with open(validation_commands_path, 'r') as f:
+                    edited_json = json.load(f)
+                # Validate the structure
+                commands = CommandList(commands=[Command(**cmd) for cmd in edited_json])
+                print("\nValidation commands updated successfully!")
+                break
+            except Exception as e:
+                print(f"\nError in JSON format: {str(e)}")
+                print("Please fix the JSON format and try again.")
+        elif choice == 'n':
+            break
+        else:
+            print("Please enter 'y' or 'n'")
     
     initial_state = ValidationState(
         messages=[SystemMessage(content="Starting validation process")],
@@ -562,7 +588,8 @@ def start_validation_agent(
             "commands": [cmd.dict() for cmd in commands.commands],
             "original_commands": commands.commands,  # Store original commands for revalidation
             "executed_commands": [],
-            "forge": forge
+            "forge": forge,
+            "validation_commands_path": validation_commands_path
         },
         implementation_plan=implementation_plan,
         repo_path=repo_path,
@@ -576,13 +603,7 @@ def start_validation_agent(
         max_total_attempts=max_total_attempts
     )
     
-    print("\nCreating validation workflow...")
     workflow = create_validation_graph()
-    
-    print("\nStarting validation workflow...")
-    final_state = workflow.invoke(initial_state)
-    
-    print("\n=== Validation Complete ===")
-    print(f"Final validation status: {final_state['validation_status']}")
+    final_state = workflow.invoke(initial_state, config=config)
     
     return final_state 

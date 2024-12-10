@@ -19,6 +19,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+# Disable all logging levels
+logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
 
 # Initialize LLM
@@ -147,30 +149,51 @@ def code_reviewer(state: ExecutionState) -> ExecutionState:
     
     # Get files that need to be reviewed
     files_to_review = state["files_to_edit"]
+
     if not files_to_review:
         logger.warning("No files marked for review!")
         state["code_query_decision"] = "user"
         state["memory"]['current_user_prompt'] = "Please provide the current contents of the infrastructure code files to review."
         return state
         
-    # Build review prompt
+    # Get past user responses from memory
+    past_responses = state["memory"].get('user_inputs', [])
+    past_responses_str = "\n".join([
+        f"Q: {resp['prompt']}\nA: {resp['response']}"
+        for resp in past_responses
+    ])
+
+    filecontents = ""
+    for file_path in files_to_review:
+        content = open(state['repo_path'] + "/" + file_path, 'r').read()
+        filecontents += f"\n\nFile: {file_path}\n```hcl\n{content}\n```"
+    
+    # print(filecontents)
+
     prompt = f"""
     Review the following infrastructure code changes:
-    
-    Files being reviewed: {json.dumps(files_to_review, indent=2)}
+
     Implementation Plan: {state["implementation_plan"]}
+
+    Files being reviewed: {filecontents}
+
+    Previous User Responses:
+    {past_responses_str if past_responses else "No previous responses"}
     
     Make a decision about the code changes:
     - READY: Code is complete and correct
-    - FIX: Code needs fixes (provide details)
+    - FIX: Code needs syntax fixes (provide details)
     - RAG: Need to query knowledge base (provide query)
-    - USER: Need user input (provide question)
+    - USER: Need user input to fill placeholders or solve security questions (provide question)
     
     IMPORTANT RULES:
     - If you choose anything except READY, you MUST provide a clear explanation of the issue
-    - For RAG or USER decisions, you MUST also provide the exact query needed
+    - Issues should only be bugs, syntax errors, placeholders, or inconsistencies with the implementation plan
+    - DO NOT raise issues about items that were already answered in previous user responses
+    - For RAG or USER decisions, you MUST provide the exact query needed
     - For FIX, your explanation must clearly state what's wrong
     - Be specific and concise in your explanation
+    - Before asking a user question, check if it was already answered in previous responses
     
     Example Response 1:
     {{
@@ -185,6 +208,7 @@ def code_reviewer(state: ExecutionState) -> ExecutionState:
         "next_query": "Please provide the IP address that should be allowed SSH access"
     }}
     """
+
     class ReviewDecision(BaseModel):
         """Model for code review decisions"""
         decision: Literal["READY", "FIX", "RAG", "USER"] = Field(
@@ -200,6 +224,16 @@ def code_reviewer(state: ExecutionState) -> ExecutionState:
 
     try:
         result = llm.with_structured_output(ReviewDecision).invoke(prompt)
+        
+        # Check if this question was already asked
+        if result.decision == "USER" and result.next_query:
+            for past_response in past_responses:
+                if (result.next_query.lower().strip() == past_response['prompt'].lower().strip() or
+                    result.explanation.lower().strip() in past_response['prompt'].lower().strip()):
+                    logger.info(f"Question already answered: {result.next_query}")
+                    # Re-run review with the answer
+                    state["code_query_decision"] = "execute"
+                    return state
         
         # Log the review decision and explanation
         logger.info(f"Review Decision: {result.decision}")
@@ -243,7 +277,7 @@ def code_reviewer(state: ExecutionState) -> ExecutionState:
             state["code_query_decision"] = "end"
             
     except Exception as e:
-        logger.error(f"Error during code review: {str(e)}", exc_info=True)
+        logger.error(f"Error during code review: {str(e)}")
         state["code_query_decision"] = "end"
     
     return state
